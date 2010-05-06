@@ -46,7 +46,8 @@
                 */
                 $('.button_run').live('click', function(evt) {
                     key = evt.target.parentNode.parentNode.id;
-                    $form = $('#form_' + key);
+                    form_id = '#form_' + key.replace(/\./g, '\\.');
+                    $form = $(form_id);
                     if ($form.length) {
                         $('.input_form').hide();
                         html_width = $('html').width();
@@ -67,7 +68,8 @@
                 */
                 $('.button_form_run').live('click', function(evt) {
                     task_key = evt.target.parentNode.parentNode.id.slice(5);
-                    $form = $('#form_'+ task_key);
+                    form_id = '#form_' + task_key.replace(/\./g, '\\.');
+                    $form = $(form_id);
                     $inputs = $form.find(' input');
                     args = {};
                     for (i=0; i<$inputs.length; i++) {
@@ -483,7 +485,7 @@
                     <td class="task_name">{{task.task_key}}</td>
                     <td class="progress"><div class="bar"></div></td>
                     <td class="queue_time">{{task.queued}}</td>
-                    <td class="start_time">{{task.started|default:'--'}}</td>
+                    <td class="start_time">{{task.started|default:"--"}}</td>
                     <td class="buttons">
                         {% if perms.pydra_server.can_manage_queue %}
                             <div class="button_priority_up button" title="Priority Up"></div>
