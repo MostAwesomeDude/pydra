@@ -250,13 +250,22 @@ class ParallelTask(Task):
     def start_subtask(self, task, subtask_key, workunit, kwargs, callback, \
                       callback_args):
         """
-        Overridden to retrieve input arguments from datastore self.input.  These
-        values are added to kwargs and passed to the subtask.  values in the
-        workunit take preference over values in kwargs
+        Launch a specified subtask.
+
+        Only called from the subtask's `Worker`, as the final step before
+        actually letting the subtask do its work.
+
+        :Parameters:
+            task : `Task`
+                The subtask instance to be run.
+            workunit : dict
+                The keyword arguments to be passed to the task.
         """
-        # TODO: code after datasource update
-        #args, kwargs = self.input.unpack(workunit, (), kwargs)
-        #task._start(args, kwargs, callback, callback_args)
+
+        # Delayable?
+        if "datasource" in workunit:
+            workunit["data"] = unpack(workunit["datasource"])
+
         task._start(workunit, callback, callback_args)
 
 
