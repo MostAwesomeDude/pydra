@@ -23,6 +23,18 @@ def iterable(i):
     except TypeError:
         return False
 
+def delayable(ds):
+    """
+    Test whether a datasource description can have its unpacking delayed until
+    the last minute.
+
+    Some datasources, like SQL databases and distributed filesystems, will
+    definitely want to be delayable; other datasources, like simple iterables,
+    will definitely be slower under this scheme.
+    """
+
+    return False
+
 def validate(ds, *args):
     """
     Given a potential datasource description, return its canonical form.

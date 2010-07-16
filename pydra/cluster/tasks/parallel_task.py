@@ -25,7 +25,7 @@ from twisted.internet import reactor, threads
 
 from pydra.cluster.tasks import Task, TaskNotFoundException, STATUS_CANCELLED,\
     STATUS_FAILED,STATUS_STOPPED,STATUS_RUNNING,STATUS_PAUSED,STATUS_COMPLETE
-from pydra.cluster.tasks.datasource import unpack, validate
+from pydra.cluster.tasks.datasource import delayable, unpack, validate
 from pydra.util.key import thaw
 
 class ParallelTask(Task):
@@ -262,8 +262,8 @@ class ParallelTask(Task):
         """
 
         # Delayable?
-        if "datasource" in workunit:
-            workunit["data"] = unpack(workunit["datasource"])
+        if delayable(self.datasource):
+            workunit["data"] = unpack(self.datasource)
 
         task._start(workunit, callback, callback_args)
 
