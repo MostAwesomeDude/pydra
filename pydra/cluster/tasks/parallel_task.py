@@ -115,6 +115,31 @@ class ParallelTask(Task):
                 index)
 
 
+    def get_work_units(self):
+        """
+        Yield a series of work units.
+
+        This function returns *all* work units, one by one. For each work
+        unit, the data of the unit is stored in `_data_in_progress`.
+
+        Warning: This method will take the instance lock as needed, but should
+        not be locked during yields.
+
+        :return: tuple(data, index)
+        """
+        # XXX needs to have a delayable path as well
+        slicer = unpack(self.datasource)
+
+        while True:
+            data, index = next(slicer), self._workunit_count
+
+            yield data, index
+
+            with self._lock:
+                self._workunit_count += 1
+                self._data_in_progress[index] = data
+
+
     def _stop(self):
         """
         Overridden to call stop on all children
@@ -195,31 +220,6 @@ class ParallelTask(Task):
         pt = ParallelTask()
         pt.set_subtask(cls, *args, **kwargs)
         return pt
-
-
-    def get_work_units(self):
-        """
-        Yield a series of work units.
-
-        This function returns *all* work units, one by one. For each work
-        unit, the data of the unit is stored in `_data_in_progress`.
-
-        Warning: This method will take the instance lock as needed, but should
-        not be locked during yields.
-
-        :return: tuple(data, index)
-        """
-        # XXX needs to have a delayable path as well
-        slicer = unpack(self.datasource)
-
-        while True:
-            data, index = next(slicer), self._workunit_count
-
-            yield data, index
-
-            with self._lock:
-                self._workunit_count += 1
-                self._data_in_progress[index] = data
 
 
     def progress(self):
