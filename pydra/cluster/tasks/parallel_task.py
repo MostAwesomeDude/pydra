@@ -40,7 +40,6 @@ class ParallelTask(Task):
 
     datasource = None
     """The datasource description."""
-    slicer = None
 
     def __init__(self, msg=None):
         Task.__init__(self, msg)
