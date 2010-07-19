@@ -30,8 +30,6 @@ class DataSource(object):
     they reflect. They are fairly lightweight and easy to serialize.
     """
 
-    args = tuple()
-
     def __init__(self, *args):
         """
         Initialize and validate the datasource description.
@@ -78,9 +76,15 @@ class DataSource(object):
         if len(ds) == 0:
             # Yeah, yeah, you're cute.
             self.args = [None]
+            return
         elif len(ds) == 1:
-            # Did not read the docs.
-            if callable(ds[0]):
+            # Did not read the docs, or passed in an iterable without
+            # unpacking; i.e. DS(args) instead of DS(*args).
+            if iterable(ds[0]) and len(ds[0]) > 1:
+                # Odds are good that they just forgot to unpack. Help them
+                # out a bit.
+                ds = ds[0]
+            elif callable(ds[0]):
                 # I can see myself getting lots of flak for this. On one hand,
                 # this provides incredible amounts of power to application
                 # authors wanting to pass in completely custom datasource
@@ -92,18 +96,19 @@ class DataSource(object):
                 # a common parent class for all selectors, like we have for
                 # all slicers. ~ C.
                 self.selector = ds[0]
-            elif iterable(ds[0]):
-                self.args = ds[0]
+                self.args = tuple()
+                return
             else:
                 self.args = [ds[0]]
+                return
+
+        # XXX deal with nested stuff too plz
+        if callable(ds[0]):
+            # Excellent.
+            self.selector = ds[0]
+            self.args = ds[1:]
         else:
-            # XXX deal with nested stuff too plz
-            if callable(ds[0]):
-                # Excellent.
-                self.selector = ds[0]
-                self.args = ds[1:]
-            else:
-                self.args = ds
+            self.args = ds
 
     def unpack(self):
         """
