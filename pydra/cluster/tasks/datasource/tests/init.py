@@ -6,6 +6,12 @@ import unittest
 from pydra.cluster.tasks.datasource import DataSource
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
 
+class DelayableTest(unittest.TestCase):
+
+    def test_iterslicer(self):
+        ds = DataSource(IterSlicer, range(5))
+        self.assertFalse(ds.delayable)
+
 class ValidateTest(unittest.TestCase):
 
     def test_none(self):

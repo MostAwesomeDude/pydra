@@ -37,10 +37,11 @@ class DataSource(object):
 
         self.validate(args)
 
+    @property
     def delayable(self):
         """
-        Test whether a datasource description can have its unpacking delayed
-        until the last minute.
+        Whether a datasource description can have its unpacking delayed until
+        the last minute.
 
         Some datasources, like SQL databases and distributed filesystems, will
         definitely want to be delayable; other datasources, like simple

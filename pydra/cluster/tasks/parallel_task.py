@@ -262,7 +262,7 @@ class ParallelTask(Task):
         """
 
         # Delayable?
-        if self.datasource.delayable():
+        if self.datasource.delayable:
             workunit["data"] = self.datasource.unpack()
 
         task._start(workunit, callback, callback_args)
