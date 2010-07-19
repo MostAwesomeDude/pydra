@@ -111,6 +111,16 @@ class DataSource(object):
         else:
             self.args = ds
 
+        # Examine each argument. If it appears to be a DS-like tuple, repack
+        # it as a DS.
+        l = []
+        for item in self.args:
+            if iterable(item) and len(item) and callable(item[0]):
+                l.append(DataSource(*item))
+            else:
+                l.append(item)
+        self.args = tuple(l)
+
     def unpack(self):
         """
         Instantiate this datasource.

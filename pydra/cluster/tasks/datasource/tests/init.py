@@ -35,6 +35,12 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual(ds.selector, IterSlicer)
         self.assertEqual(ds.args, ([1, 2, 3, 4, 5],))
 
+    def test_recursive(self):
+        ds = DataSource(IterSlicer,
+            (IterSlicer, [range(10) for i in range(10)]))
+        self.assertEqual(ds.selector, IterSlicer)
+        [self.assertTrue(isinstance(i, DataSource)) for i in ds.args]
+
 class UnpackTest(unittest.TestCase):
 
     def test_iterslicer(self):
