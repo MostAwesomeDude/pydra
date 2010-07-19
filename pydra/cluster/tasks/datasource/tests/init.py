@@ -22,12 +22,12 @@ class ValidateTest(unittest.TestCase):
     def test_iterslicer_tuple(self):
         ds = DataSource((IterSlicer, [1, 2, 3, 4, 5]))
         self.assertEqual(ds.selector, IterSlicer)
-        self.assertEqual(ds.args, [1, 2, 3, 4, 5])
+        self.assertEqual(ds.args, ([1, 2, 3, 4, 5],))
 
     def test_iterslicer_args(self):
         ds = DataSource(IterSlicer, [1, 2, 3, 4, 5])
         self.assertEqual(ds.selector, IterSlicer)
-        self.assertEqual(ds.args, [1, 2, 3, 4, 5])
+        self.assertEqual(ds.args, ([1, 2, 3, 4, 5],))
 
 class UnpackTest(unittest.TestCase):
 
