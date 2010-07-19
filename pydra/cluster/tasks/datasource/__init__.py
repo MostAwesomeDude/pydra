@@ -1,11 +1,10 @@
 """
-Helper functions for datasource handling.
+Datasource API main classes.
 
-These are all API functions and may be called by users.
+These are all Pydra core API and may be called by users.
 
-Datasource descriptions are simple tuples of information used to instantiate
-datasources. The first member of the tuple is a class, and the other members
-are arguments to be given to the class upon instantiation.
+Datasource descriptions are simple objects information used to instantiate
+datasources.
 """
 
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
@@ -23,62 +22,88 @@ def iterable(i):
     except TypeError:
         return False
 
-def delayable(ds):
+class DataSource(object):
     """
-    Test whether a datasource description can have its unpacking delayed until
-    the last minute.
+    A description of an external data source.
 
-    Some datasources, like SQL databases and distributed filesystems, will
-    definitely want to be delayable; other datasources, like simple iterables,
-    will definitely be slower under this scheme.
+    Datasource objects are technically only descriptions of the external data
+    they reflect. They are fairly lightweight and easy to serialize.
     """
 
-    return False
+    def __init__(self, *args):
+        """
+        Initialize and validate the datasource description.
+        """
 
-def validate(ds, *args):
-    """
-    Given a potential datasource description, return its canonical form.
+        self.validate(args)
 
-    This function can and will make guesses; it will always return a valid, if
-    slightly mangled, datasource description.
+    def delayable(ds):
+        """
+        Test whether a datasource description can have its unpacking delayed
+        until the last minute.
 
-    :Parameters:
-        ds : tuple
-            The datasource description, or some object vaguely similar to a
-            datasource description
-        args
-            Stopgap against TypeError from incorrectly protected tuples. Will
-            be appended to the datasource description.
-    """
+        Some datasources, like SQL databases and distributed filesystems, will
+        definitely want to be delayable; other datasources, like simple
+        iterables, will definitely be slower under this scheme.
+        """
 
-    # If the caller didn't read the docs...
-    if args:
-        # Hax. Only lists are ordered, mutable, and iterable, and we need all
-        # three in order to prepare our tuple. To make matters worse, we need
-        # to check the iterability of ds in order to pick the right list
-        # constructor (list() vs. []) so that we Do the Right Thing.
-        if iterable(ds):
-            ds = tuple(list(ds) + list(args))
+        return False
+
+    def validate(self, ds):
+        """
+        Given a potential datasource description tuple, initialize this
+        datasource description appropriately.
+
+        This function can and will make guesses in order to always be valid.
+
+        :Parameters:
+            ds : tuple
+                The datasource description, or some object vaguely similar to
+                a datasource description, or perhaps something having nothing
+                at all to do with datasources
+        """
+
+        if len(ds) == 0:
+            # Yeah, yeah, you're cute.
+            self.ds = (IterSlicer, [None])
+        elif len(ds) == 1:
+            # Did not read the docs.
+            if callable(ds[0]):
+                # I can see myself getting lots of flak for this. On one hand,
+                # this provides incredible amounts of power to application
+                # authors wanting to pass in completely custom datasource
+                # slicers and selectors. On the other hand, it could be a
+                # security problem, and also a compromise of our serialization
+                # routines.
+                #
+                # This might turn out to be a massive non-problem if we create
+                # a common parent class for all selectors, like we have for
+                # all slicers. ~ C.
+                self.ds = (ds[0])
+            elif iterable(ds[0]):
+                self.ds = (IterSlicer, ds[0])
+            else:
+                self.ds = (IterSlicer, [ds[0]])
         else:
-            ds = tuple([ds] + list(args))
+            # XXX deal with nested stuff too plz
+            if callable(ds[0]):
+                # Excellent.
+                self.ds = ds
+            else:
+                self.ds = (IterSlicer, ds)
 
-    # If it's iterable...
-    if iterable(ds):
         if not callable(next(iter(ds))):
             # Turn raw iterables into IterSlicers.
-            ds = (IterSlicer, ds)
-    else:
-        # Last-ditch effort: Return a single slice of data.
-        ds = (IterSlicer, [ds])
+            self.ds = (IterSlicer, ds)
 
-    return ds
+    def unpack(self):
+        """
+        Instantiate this datasource.
 
-def unpack(ds):
-    """
-    Instantiate and unpack a datasource.
-    """
+        :returns: Slices of data
+        """
 
-    selector, args = ds[0], ds[1:]
+        selector, args = self.ds[0], self.ds[1:]
 
-    for s in selector(*args):
-        yield s
+        for s in selector(*args):
+            yield s

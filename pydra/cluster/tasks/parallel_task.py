@@ -25,7 +25,7 @@ from twisted.internet import reactor, threads
 
 from pydra.cluster.tasks import Task, TaskNotFoundException, STATUS_CANCELLED,\
     STATUS_FAILED,STATUS_STOPPED,STATUS_RUNNING,STATUS_PAUSED,STATUS_COMPLETE
-from pydra.cluster.tasks.datasource import delayable, unpack, validate
+from pydra.cluster.tasks.datasource import DataSource
 from pydra.util.key import thaw
 
 class ParallelTask(Task):
@@ -49,7 +49,7 @@ class ParallelTask(Task):
         self.__subtask_args = None       # args for initializing subtask
         self.__subtask_kwargs = None     # kwargs for initializing subtask
 
-        self.datasource = validate(self.datasource)
+        self.datasource = DataSource(self.datasource)
 
         self.logger = logging.getLogger('root')
 
@@ -127,7 +127,7 @@ class ParallelTask(Task):
         :return: tuple(data, index)
         """
         # XXX needs to have a delayable path as well
-        slicer = unpack(self.datasource)
+        slicer = self.datasource.unpack()
 
         while True:
             data, index = next(slicer), self._workunit_count
@@ -262,8 +262,8 @@ class ParallelTask(Task):
         """
 
         # Delayable?
-        if delayable(self.datasource):
-            workunit["data"] = unpack(self.datasource)
+        if self.datasource.delayable():
+            workunit["data"] = self.datasource.unpack()
 
         task._start(workunit, callback, callback_args)
 

@@ -3,27 +3,26 @@
 import itertools
 import unittest
 
-from pydra.cluster.tasks.datasource import unpack, validate
+from pydra.cluster.tasks.datasource import DataSource
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
 
 class ValidateTest(unittest.TestCase):
 
     def test_none(self):
-        ds = validate(None)
-        self.assertEqual(ds, (IterSlicer, [None]))
+        ds = DataSource(None)
+        self.assertEqual(ds.ds, (IterSlicer, [None]))
 
     def test_string(self):
         s = "Make it so, Number One!"
-        ds = validate(s)
-        self.assertEqual(ds, (IterSlicer, s))
+        ds = DataSource(s)
+        self.assertEqual(ds.ds, (IterSlicer, s))
 
     def test_iterslicer(self):
         ds = (IterSlicer, [1, 2, 3, 4, 5])
-        self.assertEqual(ds, validate(ds))
+        self.assertEqual(ds, DataSource(ds).ds)
 
     def test_args(self):
-        ds = validate(IterSlicer, [1, 2, 3, 4, 5])
-        self.assertEqual(ds, validate(ds))
+        ds = DataSource(IterSlicer, [1, 2, 3, 4, 5])
 
 class UnpackTest(unittest.TestCase):
 
@@ -35,22 +34,8 @@ class UnpackTest(unittest.TestCase):
         x = xrange(10)
 
         for i in l, u, s, t, x:
-            ds = validate((IterSlicer, i))
-            for expected, unpacked in itertools.izip_longest(i,
-                unpack(ds)):
-                self.assertEqual(expected, unpacked)
-
-    def test_iterslicer_unvalidated(self):
-        l = [chr(i) for i in range(255)]
-        u = u"\u03c0 \u042f \u97f3 \u00e6 \u221e"
-        s = "Aye aye, Cap'n."
-        t = (True, False, None)
-        x = xrange(10)
-
-        for i in l, u, s, t, x:
-            ds = IterSlicer, i
-            for expected, unpacked in itertools.izip_longest(i,
-                unpack(ds)):
+            ds = DataSource(IterSlicer, i)
+            for expected, unpacked in itertools.izip_longest(i, ds.unpack()):
                 self.assertEqual(expected, unpacked)
 
 if __name__ == "__main__":
