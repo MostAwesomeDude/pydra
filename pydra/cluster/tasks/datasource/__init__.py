@@ -3,8 +3,8 @@ Datasource API main classes.
 
 These are all Pydra core API and may be called by users.
 
-Datasource descriptions are simple objects information used to instantiate
-datasources.
+Datasource descriptions are simple objects full of information used to
+instantiate datasources.
 """
 
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
@@ -30,6 +30,8 @@ class DataSource(object):
     they reflect. They are fairly lightweight and easy to serialize.
     """
 
+    args = tuple()
+
     def __init__(self, *args):
         """
         Initialize and validate the datasource description.
@@ -37,7 +39,7 @@ class DataSource(object):
 
         self.validate(args)
 
-    def delayable(ds):
+    def delayable(self):
         """
         Test whether a datasource description can have its unpacking delayed
         until the last minute.
@@ -54,6 +56,13 @@ class DataSource(object):
         Given a potential datasource description tuple, initialize this
         datasource description appropriately.
 
+        Datasource descriptions should generally look like this tuple:
+
+        >>> (BreakfastSelector, spam, eggs, spam, spam, bacon, eggs, spam)
+
+        The general idiom is to have a selector or slicer first, and then the
+        arguments to be passed to that selector.
+
         This function can and will make guesses in order to always be valid.
 
         :Parameters:
@@ -63,9 +72,12 @@ class DataSource(object):
                 at all to do with datasources
         """
 
+        # This is really not a bad guess, apparently.
+        self.selector = IterSlicer
+
         if len(ds) == 0:
             # Yeah, yeah, you're cute.
-            self.ds = (IterSlicer, [None])
+            self.args = [None]
         elif len(ds) == 1:
             # Did not read the docs.
             if callable(ds[0]):
@@ -79,31 +91,26 @@ class DataSource(object):
                 # This might turn out to be a massive non-problem if we create
                 # a common parent class for all selectors, like we have for
                 # all slicers. ~ C.
-                self.ds = (ds[0])
+                self.selector = ds[0]
             elif iterable(ds[0]):
-                self.ds = (IterSlicer, ds[0])
+                self.args = ds[0]
             else:
-                self.ds = (IterSlicer, [ds[0]])
+                self.args = [ds[0]]
         else:
             # XXX deal with nested stuff too plz
             if callable(ds[0]):
                 # Excellent.
-                self.ds = ds
+                self.selector = ds[0]
+                self.args = ds[1:]
             else:
-                self.ds = (IterSlicer, ds)
-
-        if not callable(next(iter(ds))):
-            # Turn raw iterables into IterSlicers.
-            self.ds = (IterSlicer, ds)
+                self.args = ds
 
     def unpack(self):
         """
         Instantiate this datasource.
 
-        :returns: Slices of data
+        :returns: Generator yielding slices of data
         """
 
-        selector, args = self.ds[0], self.ds[1:]
-
-        for s in selector(*args):
+        for s in self.selector(*self.args):
             yield s

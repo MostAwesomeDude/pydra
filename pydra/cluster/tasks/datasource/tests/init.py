@@ -10,19 +10,24 @@ class ValidateTest(unittest.TestCase):
 
     def test_none(self):
         ds = DataSource(None)
-        self.assertEqual(ds.ds, (IterSlicer, [None]))
+        self.assertEqual(ds.selector, IterSlicer)
+        self.assertEqual(ds.args, [None])
 
     def test_string(self):
         s = "Make it so, Number One!"
         ds = DataSource(s)
-        self.assertEqual(ds.ds, (IterSlicer, s))
+        self.assertEqual(ds.selector, IterSlicer)
+        self.assertEqual(ds.args, s)
 
-    def test_iterslicer(self):
-        ds = (IterSlicer, [1, 2, 3, 4, 5])
-        self.assertEqual(ds, DataSource(ds).ds)
+    def test_iterslicer_tuple(self):
+        ds = DataSource((IterSlicer, [1, 2, 3, 4, 5]))
+        self.assertEqual(ds.selector, IterSlicer)
+        self.assertEqual(ds.args, [1, 2, 3, 4, 5])
 
-    def test_args(self):
+    def test_iterslicer_args(self):
         ds = DataSource(IterSlicer, [1, 2, 3, 4, 5])
+        self.assertEqual(ds.selector, IterSlicer)
+        self.assertEqual(ds.args, [1, 2, 3, 4, 5])
 
 class UnpackTest(unittest.TestCase):
 
