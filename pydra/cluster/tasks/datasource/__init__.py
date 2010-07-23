@@ -28,6 +28,11 @@ class DataSource(object):
 
     Datasource objects are technically only descriptions of the external data
     they reflect. They are fairly lightweight and easy to serialize.
+
+    A known quirk is that greedy expansion of `IterSlicer` arguments results
+    in internal storage of strings as tuples of single characters. This
+    doesn't change IterSlicer behavior, but it may affect unexpected uses of
+    this class.
     """
 
     def __init__(self, *args):
@@ -128,5 +133,13 @@ class DataSource(object):
         :returns: Generator yielding slices of data
         """
 
-        for s in self.selector(*self.args):
+        l = []
+
+        for arg in self.args:
+            if isinstance(arg, DataSource):
+                l.append(arg.unpack())
+            else:
+                l.append(arg)
+
+        for s in self.selector(*l):
             yield s

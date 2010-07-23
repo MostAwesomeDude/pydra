@@ -23,7 +23,7 @@ class ValidateTest(unittest.TestCase):
         s = "Make it so, Number One!"
         ds = DataSource(s)
         self.assertEqual(ds.selector, IterSlicer)
-        self.assertEqual(ds.args, s)
+        self.assertEqual(ds.args, tuple(s))
 
     def test_iterslicer_tuple(self):
         ds = DataSource((IterSlicer, [1, 2, 3, 4, 5]))
@@ -54,6 +54,13 @@ class UnpackTest(unittest.TestCase):
             ds = DataSource(IterSlicer, i)
             for expected, unpacked in itertools.izip_longest(i, ds.unpack()):
                 self.assertEqual(expected, unpacked)
+
+    def test_recursive(self):
+        ds = DataSource(IterSlicer,
+            (IterSlicer, [range(10) for i in range(10)]))
+        expected = range(10) * 10
+        for i, unpacked in enumerate(ds.unpack()):
+            self.assertEqual(expected[i], unpacked)
 
 if __name__ == "__main__":
     unittest.main()
