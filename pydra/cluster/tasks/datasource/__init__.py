@@ -15,12 +15,22 @@ def iterable(i):
 
     :return: Whether `i` is iterable.
     """
-
     try:
         iter(i)
         return True
     except TypeError:
         return False
+
+def isbackend(c):
+    """
+    Check if the passed class is a backend.
+    
+    They get mild special treatment to make things clearer to use.
+    
+    :return: Whether `c` is a backend class.
+    """
+    m = getattr(c, "__module__", "")
+    return isinstance(c, type) and (m == "pydra.cluster.tasks.datasource.backend")
 
 class DataSource(object):
     """
@@ -133,13 +143,27 @@ class DataSource(object):
         :returns: Generator yielding slices of data
         """
 
+        for s in self.unpack_instance():
+            yield s
+
+    def unpack_instance(self):
+        """
+        Instantiate this datasource. Used internally.
+
+        For convenience, backends unpack into "raw" instances when nested.
+
+        :returns: A selector instance
+        """
+
         l = []
 
         for arg in self.args:
             if isinstance(arg, DataSource):
-                l.append(arg.unpack())
+                if isbackend(arg.selector):
+                    l.append(arg.unpack_instance())
+                else:
+                    l.append(arg.unpack())
             else:
                 l.append(arg)
 
-        for s in self.selector(*l):
-            yield s
+        return self.selector(*l)
