@@ -63,7 +63,7 @@ class DataSource(object):
         iterables, will definitely be slower under this scheme.
         """
 
-        return False
+        return getattr(self.selector, "delayable", False)
 
     def validate(self, ds):
         """
