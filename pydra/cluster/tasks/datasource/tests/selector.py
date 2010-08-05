@@ -2,7 +2,7 @@
 
 import unittest
 
-from pydra.cluster.tasks.datasource.selector import DirSelector, FileSelector
+from pydra.cluster.tasks.datasource.selector import DirSelector, FileSelector, SQLSelector
 
 class DirSelectorCheeseTest(unittest.TestCase):
 
@@ -35,6 +35,50 @@ class FileSelectorTest(unittest.TestCase):
     def test_key(self):
 
         self.assertTrue(hasattr(self.fs, "key") and self.fs.key)
+
+class SQLSelectorTest(unittest.TestCase):
+    
+    def setUp(self):
+        #TODO: test the selector without using a real backend(?)
+        from pydra.cluster.tasks.datasource.backend import SQLBackend
+        
+        self.l = [('leicester',), ('quark',), (1,), (0,), (None,)]
+        
+        self.backend = SQLBackend("sqlite3", ":memory:")
+        self.backend.connect()
+        
+        db = self.backend.handle
+        db.execute("CREATE TABLE CHEESES (NAME)")
+        db.executemany("INSERT INTO CHEESES VALUES (?)", self.l)
+        db.commit()
+    
+    def test_trivial(self):
+        
+        query = "SELECT * FROM CHEESES"
+        selector = SQLSelector(self.backend, query)
+        self.assertEqual(self.l, [k for k in selector])
+    
+    def test_args(self):
+        
+        query = "SELECT * FROM CHEESES WHERE NAME IN (?, ?)"
+        selector = SQLSelector(self.backend, query, "quark", "leicester")
+        self.assertEqual(self.l[:2], [k for k in selector])
+    
+    def test_kwargs(self):
+        
+        query = "SELECT * FROM CHEESES WHERE NAME IN (:cheeseA, :cheeseB)"
+        selector = SQLSelector(self.backend, query, cheeseA="quark", cheeseB="leicester")
+        self.assertEqual(self.l[:2], [k for k in selector])
+    
+    def test_syntax(self):
+        
+        query = "SELECT * FROM CHEESES WHERE NAME IN (?, ?)"
+        self.assertRaises(ValueError, SQLSelector, self.backend, query, "quark", "leicester", it="ni")
+    
+    def test_key(self):
+        
+        selector = SQLSelector(self.backend, "SELECT * FROM CHEESES")
+        self.assertTrue(hasattr(selector, "key") and selector.key)
 
 if __name__ == "__main__":
     import os.path

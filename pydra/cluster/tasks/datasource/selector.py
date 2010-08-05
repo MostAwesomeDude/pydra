@@ -2,7 +2,7 @@ import mmap
 import os
 import os.path
 
-from pydra.cluster.tasks.datasource.slicer import LineSlicer
+from pydra.cluster.tasks.datasource.slicer import LineSlicer, CursorSlicer
 from pydra.util.key import keyable
 
 @keyable
@@ -62,11 +62,30 @@ class FileSelector(object):
 @keyable
 class SQLSelector(object):
     """
-    Selects rows from a SQL database.
+    Selects rows from a SQL database, based on the given query.
     """
-
-    def __init__(self, db):
+    
+    delayable = True
+    
+    def __init__(self, db, query, *args, **kwargs):
         if hasattr(db, "handle"):
             self.handle = db.handle
         else:
             self.handle = db
+        self.query = query
+        if args and kwargs:
+            raise ValueError, "args and kwargs can't both be given"
+        if kwargs:
+            self.params = kwargs
+        elif args:
+            self.params = args
+        else:
+            self.params = None
+    
+    def __iter__(self):
+        cursor = self.handle.cursor()
+        if self.params:
+            cursor.execute(self.query, self.params)
+        else:
+            cursor.execute(self.query)
+        return CursorSlicer(cursor)

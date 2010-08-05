@@ -24,11 +24,19 @@ class _TestSlicer(object):
         return next(self.state)
 
 
+from pydra.cluster.tasks.datasource.selector import SQLSelector
+from pydra.cluster.tasks.datasource.backend import SQLBackend
+
+
 class DelayableTest(unittest.TestCase):
 
     def test_iterslicer(self):
         ds = DataSource(IterSlicer, range(5))
         self.assertFalse(ds.delayable)
+    
+    def test_sqlselector(self):
+        ds = DataSource(SQLSelector, DataSource(SQLBackend,"sqlite3",":memory:"), "SELECT 42")
+        self.assertTrue(ds.delayable)
 
 class ValidateTest(unittest.TestCase):
 
