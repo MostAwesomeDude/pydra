@@ -3,7 +3,7 @@
 import unittest
 
 from pydra.cluster.tasks.datasource.slicer import IterSlicer, CursorSlicer, CursorDumbSlicer, MapSlicer, LineSlicer
-from pydra.util.key import thaw
+from pydra.util.key import thaw, test_keys
 
 class _CursorDumb(object):
     
@@ -31,6 +31,7 @@ class _CursorSmart(_CursorDumb):
         else:
             return item
 
+@test_keys('slicer')
 class IterSlicerTest(unittest.TestCase):
 
     def setUp(self):
@@ -41,10 +42,6 @@ class IterSlicerTest(unittest.TestCase):
     def test_trivial(self):
 
         self.assertEqual(self.l, [i for i in self.slicer])
-
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
 
     def test_keyable(self):
         
@@ -86,6 +83,7 @@ class CursorSlicerRealTest(IterSlicerTest):
         self.cursor = db.execute("SELECT * FROM CHEESES")
         self.slicer = CursorSlicer(self.cursor)
 
+@test_keys('slicer')
 class MapSlicerTest(unittest.TestCase):
 
     def setUp(self):
@@ -97,10 +95,7 @@ class MapSlicerTest(unittest.TestCase):
 
         self.assertEqual(self.d.keys(), [k for k in self.slicer])
 
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
-
+@test_keys('slicer')
 class LineSlicerTest(unittest.TestCase):
 
     def setUp(self):
@@ -115,10 +110,6 @@ class LineSlicerTest(unittest.TestCase):
     def test_trivial(self):
 
         self.assertEqual([51, 108, 161], [pos for pos in self.slicer])
-
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
 
     def test_state(self):
 

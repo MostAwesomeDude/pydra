@@ -137,3 +137,43 @@ def thaw(key):
     inst.state = state
 
     return inst
+
+def test_keys(*names):
+    """
+    Simple test class decorator to check basic key invariants.
+    """
+    
+    import pickle
+    
+    def test_names(c):
+        
+        for name in names:
+            
+            def key_there(self):
+                item = getattr(self, name)
+                self.assertTrue(item is not None)
+                
+                key = getattr(item, "key")
+                self.assertTrue(key is not None)
+            
+            def key_dumps(self):
+                item = getattr(self, name)
+                
+                try:
+                    pickle.dumps(item.key)
+                except TypeError, e:
+                    s = str(e)
+                    if s.startswith("can't pickle"):
+                        self.fail(s)
+                    else:
+                        raise
+            
+            key_there.__name__ = "test_key_there_%s" % name
+            key_dumps.__name__ = "test_key_dumps_%s" % name
+            
+            setattr(c, key_there.__name__, key_there)
+            setattr(c, key_dumps.__name__, key_dumps)
+        
+        return c
+    
+    return test_names

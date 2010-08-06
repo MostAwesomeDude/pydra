@@ -3,7 +3,9 @@
 import unittest
 
 from pydra.cluster.tasks.datasource.selector import DirSelector, FileSelector, SQLSelector
+from pydra.util.key import test_keys
 
+@test_keys('ds')
 class DirSelectorCheeseTest(unittest.TestCase):
 
     def setUp(self):
@@ -14,10 +16,7 @@ class DirSelectorCheeseTest(unittest.TestCase):
 
         self.assertEqual(len(self.ds), 2)
 
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.ds, "key") and self.ds.key)
-
+@test_keys('fs')
 class FileSelectorTest(unittest.TestCase):
 
     def setUp(self):
@@ -32,10 +31,7 @@ class FileSelectorTest(unittest.TestCase):
         handle2 = self.fs.handle
         self.assertEqual(handle, handle2)
 
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.fs, "key") and self.fs.key)
-
+@test_keys('selector')
 class SQLSelectorTest(unittest.TestCase):
     
     def setUp(self):
@@ -51,6 +47,8 @@ class SQLSelectorTest(unittest.TestCase):
         db.execute("CREATE TABLE CHEESES (NAME)")
         db.executemany("INSERT INTO CHEESES VALUES (?)", self.l)
         db.commit()
+        
+        self.selector = SQLSelector(self.backend, "SELECT * FROM CHEESES")
     
     def test_trivial(self):
         
@@ -74,11 +72,6 @@ class SQLSelectorTest(unittest.TestCase):
         
         query = "SELECT * FROM CHEESES WHERE NAME IN (?, ?)"
         self.assertRaises(ValueError, SQLSelector, self.backend, query, "quark", "leicester", it="ni")
-    
-    def test_key(self):
-        
-        selector = SQLSelector(self.backend, "SELECT * FROM CHEESES")
-        self.assertTrue(hasattr(selector, "key") and selector.key)
 
 if __name__ == "__main__":
     import os.path
