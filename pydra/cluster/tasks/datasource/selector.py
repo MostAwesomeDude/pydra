@@ -3,9 +3,7 @@ import os
 import os.path
 
 from pydra.cluster.tasks.datasource.slicer import LineSlicer, CursorSlicer
-from pydra.util.key import keyable
 
-@keyable
 class DirSelector(object):
     """
     Selects a directory, yielding files.
@@ -36,7 +34,6 @@ class DirSelector(object):
     def __len__(self):
         return len(self.files)
 
-@keyable
 class FileSelector(object):
     """
     Selects files. Can yield file-based slicers.
@@ -59,7 +56,6 @@ class FileSelector(object):
         self._handle = m
         return m
 
-@keyable
 class SQLSelector(object):
     """
     Selects rows from a SQL database, based on the given query.

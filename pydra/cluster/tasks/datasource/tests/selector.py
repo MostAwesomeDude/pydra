@@ -3,9 +3,7 @@
 import unittest
 
 from pydra.cluster.tasks.datasource.selector import DirSelector, FileSelector, SQLSelector
-from pydra.util.key import test_keys
 
-@test_keys('ds')
 class DirSelectorCheeseTest(unittest.TestCase):
 
     def setUp(self):
@@ -16,7 +14,6 @@ class DirSelectorCheeseTest(unittest.TestCase):
 
         self.assertEqual(len(self.ds), 2)
 
-@test_keys('fs')
 class FileSelectorTest(unittest.TestCase):
 
     def setUp(self):
@@ -31,7 +28,6 @@ class FileSelectorTest(unittest.TestCase):
         handle2 = self.fs.handle
         self.assertEqual(handle, handle2)
 
-@test_keys('selector')
 class SQLSelectorTest(unittest.TestCase):
     
     def setUp(self):

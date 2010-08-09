@@ -27,9 +27,7 @@ for name, modules in database_names.items():
     if name not in databases:
         print "Warning: Disabling support for %s databases." % name
 
-from pydra.util.key import keyable
 
-@keyable
 class SQLBackend(object):
     """
     Backend for interfacing with DBAPI-compliant SQL databases.

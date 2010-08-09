@@ -1,8 +1,5 @@
 import cStringIO
 
-from pydra.util.key import keyable
-
-@keyable
 class IterSlicer(object):
     """
     Slicer that operates on iterables.
@@ -18,7 +15,6 @@ class IterSlicer(object):
     def next(self):
         return next(self.state)
 
-@keyable
 class CursorSlicer(IterSlicer):
     """
     Slicer that operates on DBAPI cursors.
@@ -31,7 +27,6 @@ class CursorSlicer(IterSlicer):
         else:
             self.state = CursorDumbSlicer(cursor)
 
-@keyable
 class CursorDumbSlicer(object):
     
     """
@@ -52,7 +47,6 @@ class CursorDumbSlicer(object):
             raise StopIteration
         return item
 
-@keyable
 class MapSlicer(IterSlicer):
     """
     Slicer that operates on mappings.
@@ -76,7 +70,6 @@ def mma(old, new, weight):
     return ((weight - 1) * old + new) / weight
 
 
-@keyable
 class LineSlicer(IterSlicer):
     """
     Slicer specialized for handling text blobs.
