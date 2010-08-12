@@ -20,24 +20,10 @@ import unittest
 from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
 
+from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
+    STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
+    STATUS_COMPLETE
 from pydra.cluster.tasks.tasks import Task
-
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    tasks_suite = unittest.TestSuite()
-
-    # internal functionality
-    tasks_suite.addTest(Task_Internal_Test('test_key_generation_task'))
-    tasks_suite.addTest(Task_Internal_Test('test_get_subtask_task'))
-    tasks_suite.addTest(Task_Internal_Test('test_get_worker_task'))
-
-    #task functions
-    tasks_suite.addTest(Task_TwistedTest('test_start'))
-
-    return tasks_suite
-
 
 class Task_TwistedTest(twisted_unittest.TestCase):
     """
@@ -86,16 +72,12 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         """
         Tests Task.start()
             verify:
-                * that the status starts with STATUS_STOPPED
                 * that the work method is deferred to a thread successfully
                 * that the status changes to STATUS_RUNNING when its running
                 * that the status changes to STATUS_COMPLETED when its finished
         """
         task = StartupAndWaitTask()
         task.parent = WorkerProxy()
-
-
-        self.assertEqual(task.status(), STATUS_STOPPED, 'Task did not initialize with status STATUS_STOPPED')
 
         # defer rest of test because this will cause the reactor to start
         return threads.deferToThread(self.verify_status, task=task, parent=task)
@@ -105,7 +87,6 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         """
         Tests Task.start()
             verify:
-                * that the status starts with STATUS_STOPPED
                 * that the work method is deferred to a thread successfully
                 * that the status changes to STATUS_RUNNING when its running
                 * that the status changes to STATUS_COMPLETED when its finished
@@ -113,11 +94,9 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         task = ParallelTask()
         task.subtask = StartupAndWaitTask()
         task.parent = WorkerProxy()
-        self.assertEqual(task.status(), STATUS_STOPPED, 'Task did not initialize with status STATUS_STOPPED')
 
         # defer rest of test because this will cause the reactor to start
         return threads.deferToThread(self.verify_status, task=task.subtask, parent=task, subtask_key='ParallelTask.StartupAndWaitTask')
-
 
 class Task_Internal_Test(unittest.TestCase):
     """
@@ -169,3 +148,15 @@ class Task_Internal_Test(unittest.TestCase):
         returned = self.task.get_worker()
         self.assert_(returned, 'no worker was returned')
         self.assertEqual(returned, self.worker, 'worker retrieved was not the expected worker')
+
+class StandaloneTask(Task):
+    pass
+
+class TaskStandaloneTest(unittest.TestCase):
+    """
+    Test `Task` functionality without running the Twisted reactor.
+    """
+
+    def test_initial_status(self):
+        task = StandaloneTask()
+        self.assertEqual(task.status(), STATUS_STOPPED)
