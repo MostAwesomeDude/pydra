@@ -23,19 +23,6 @@ from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
 
 from pydra.cluster.tasks.tasks import *
-from pydra.task_cache.demo_task import *
-from proxies import *
-
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    tasks_suite = unittest.TestSuite()
-
-    tasks_suite.addTest(Task_Test(''))
-
-    return tasks_suite
-
 
 class StatusSimulatingTaskProxy():
     """
