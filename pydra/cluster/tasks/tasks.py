@@ -59,6 +59,7 @@ class Task(object):
         self.msg = msg
         self.id = 1
         self.work_deferred = False
+        self.logger = logger
 
 
     def _complete(self, results):
