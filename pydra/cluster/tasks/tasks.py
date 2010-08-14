@@ -17,28 +17,29 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from twisted.internet import reactor, threads
-
-from pydra.cluster.tasks import TaskNotFoundException,\
-    STATUS_CANCELLED,STATUS_FAILED,STATUS_STOPPED,STATUS_RUNNING,\
-    STATUS_PAUSED,STATUS_COMPLETE
-
 import logging
-from pydra.logs.logger import get_task_logger
 logger = logging.getLogger('root')
 
+from twisted.internet import reactor, threads
+
+from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
+    STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
+    STATUS_COMPLETE
+from pydra.logs.logger import get_task_logger
 
 class Task(object):
     """
-    Task - class that wraps a set of functions as a runnable unit of work.  Once
-    wrapped the task allows functions to be managed and tracked in a uniform way.
+    Tasks encapsulate a single function into a unit of work. `Task` allows
+    functions to be managed and tracked in a uniform manner.
 
-    This is an abstract class and requires the following functions to be implemented:
-        * _work  -  does the work of the task
-        * _reset - resets the state of the task when stopped
-        * progress - returns the state of the task as an integer from 0 to 100
-        * progressMessage - returns the state of the task as a readable string
+    Basic usage of `Task` is fairly simple. Subclass `Task` and override
+    `work()` in the subclass.
+
+    `Task` is abstract and requires the following methods to be implemented:
+
+     * `work()`
     """
+
     parent = None
     _status = STATUS_STOPPED
     __callback = None
@@ -56,6 +57,7 @@ class Task(object):
 
 
     def __init__(self, msg=None):
+        # XXX unused
         self.msg = msg
         self.id = 1
         self.work_deferred = False
@@ -64,10 +66,13 @@ class Task(object):
 
     def _complete(self, results):
         """
-        Called by task when after _work() completes
-        
-        @param results - return value from work(...)
+        Callback called after `work()` is finished.
+
+        :Parameters:
+            results
+                The result of `work()`
         """
+
         self._status = STATUS_COMPLETE
 
         if self.__callback:
@@ -76,22 +81,26 @@ class Task(object):
         else:
             self.logger.warning('%s - Task._work() - NO CALLBACK TO MAKE: %s'
                 % (self, self.__callback))
-    
+
 
     def _get_subtask(self, task_path, clean=False):
         """
-        Task baseclass specific logic for retrieving a subtask.  The key might
-        correspond to this class instead of it's children.  The default
-        implementation of this function only checks self.
-        
-        If the task does not match a TaskNotFoundException should be raised
-        
-        @param task_path - list of strings that correspond to a task's location
-                           within a task heirarchy
-        @param clean - a new (clean) instance of the task is requested.
-        
-        @returns a tuple containing the consumed portion of the task path and
-                    the task matches the request.
+        Trivial lookup of subtask. This basic implementation only checks
+        whether the current instance matches the requested task path.
+
+        Raises `TaskNotFoundException` if the requested subtask cannot be
+        found.
+
+        :Parameters:
+            task_path : list
+                List of strings corresponding to the unique hierarchy of a
+                task
+            clean : bool
+                Whether the subtask should be reinstantiated; currently
+                ignored
+
+        :returns: A tuple containing: the consumed portion of the task path,
+            and the subtask.
         """
         #A Task can't have children,  if this is the last entry in the path
         # then this is the right task
@@ -103,33 +112,33 @@ class Task(object):
 
     def _stop(self):
         """
-        Stop the task.  This consists of just setting the STOP_FLAG.
-        The Task implementation will only stop if it honors the STOP_FLAG. There
-        is no safe way to kill the thread running the work function.  This is
-        because the Task might have implementation specific code for shutting
-        down the task to enable a restart.  If we were to just kill the thread
-        (which would be hard in twisted) it would end all processing and might
-        stop in a wierd state.  Using the STOP_FLAG means you may have bad
-        programs introduced to your cluster but for the time being it is the
-        only choice
-        
-        this method should be overridden to stop subtasks if a descendent of
-        this class contains them
+        Stop the task.
+
+        Calling this method causes the task to stop at the nearest
+        opportunity. It may or may not complete its work.
+
+        At the moment, this method is not safe or reliable.
+
+        Subclasses of `Task` with subtasks may wish to override this method in
+        order to stop subtasks.
         """
+
         self.STOP_FLAG=True
 
 
     def _start(self, args={}, callback=None, callback_args={}):
         """
-        overridden to prevent early task cleanup.  ParallelTask._work() returns immediately even though 
-        work is likely running in the background.  There appears to be no effective way to block without 
-        interupting twisted.Reactor.  The cleanup that normally happens in work() has been moved to
-        task_complete() which will be called when there is no more work remaining.
+        Executes `_work()` and sets up the callback.
 
-        @param args - kwargs to be passed to _work
-        @param callback - callback that will be called when work is complete
-        @param callback_args - dictionary passed to callback as kwargs
+        :Parameters:
+            args : dict
+                Keyword arguments to be passed to `work()`
+            callback : callable
+                Callback for completed work
+            callback_args : dict
+                Keyword arguments to be passed to `callback`
         """
+
         self.__callback = callback
         self._callback_args=callback_args
 
@@ -141,14 +150,11 @@ class Task(object):
 
     def _work(self, **kwargs):
         """
-        Calls the users work function and then calls the callback
-        signally completion of this task.  This is split out from 
-        do_work so that completion of work can be overridden to be
-        asynchronous.  By default it will be synchronous and return 
-        as soon as work() completes.  For any subclass that distributes
-        work the callback cannot be called until after all workunits
-        asynchronously return
+        Call `work()`, then `_complete()`.
+
+        :returns: The results of `work()`.
         """
+
         results = self.work(**kwargs)
         self._complete(results)
         return results
@@ -161,6 +167,7 @@ class Task(object):
         This key can be used to find this task from its root. The primary
         purpose of these keys are to find subtasks.
         """
+
         key = self.__class__.__name__
         base = self.parent.get_key()
         if base:
@@ -170,21 +177,19 @@ class Task(object):
 
     def get_subtask(self, task_path, clean=False):
         """
-        Returns a subtask from a task_path.  This function drills down through
-        a task heirarchy to retrieve the requested task.  This method calls
-        Task._get_subtask(...) to
-        
-        @param task_path - list of strings that correspond to a task's location
-                           within a task heirarchy
-        @param clean - returns a clean instance of the requested subtask.  This
-            does nothing for a Task, which has no subtasks.  In this scenario it
-            is easier to construct a new instance of by calling the constructor.
-            
-            This also only affects the task to be returned.  Other tasks in the
-            heirarchy are only instantiated as needed to recurse to the
-            requested task.
+        Given a task path, obtain the corresponding subtask, or raise
+        `TaskNotFoundException`.
 
-        @returns requested task, or TaskNotFoundException
+        Do not override this method; override `_get_subtask()` instead.
+
+        :Parameters:
+            task_path : list
+                List of strings corresponding to the unique hierarchy of a
+                task
+            clean : bool
+                Whether the subtask should be reinstantiated
+
+        :returns: The requested subtask
         """
         subtask = self
         while task_path:
@@ -198,34 +203,51 @@ class Task(object):
 
     def get_worker(self):
         """
-        Retrieves the worker running this task.  This function is recursive and bubbles
-        up through the task tree till the worker is reached
+        Get the worker running this task, or None if the task is standalone.
         """
+
         return self.parent.get_worker()
 
 
     def request_worker(self, *args, **kwargs):
         """
-        Requests a worker for a subtask from the tasks parent.  calling this on any task will
-        cause requests to bubble up to the root task whose parent will be the worker
-        running the task.
+        Requests a worker for a subtask from the task's parent.
+
+        :returns: The requested worker.
         """
+
         return self.parent.request_worker(*args, **kwargs)
 
 
     def start(self, args={}, subtask_key=None, workunit=None, task_id=-1, \
               callback=None, callback_args={}, errback=None, errback_args={}):
         """
-        starts the task.  This will spawn the work in a separate thread.
-        
-        @param args - arguments to pass to task
-        @param subtask_key - subtask to run
-        @param workunit - key of workunit or data of workunit
-        @param task_id - id of task being run
-        @param callback - callback to execute after task is complete
-        @param callback_args - args to pass to callback
-        @param errback - call back to execute if there is an exception
-        @param errback_args - arguments to pass to errback
+        Start the task.
+
+        The task's work will be spawned in a separate thread and run
+        asynchronously.
+
+        XXX Corbin: Make this return a Deferred instead of those last four
+        args.
+
+        :Parameters:
+            args : dict
+                Keyword arguments to pass to the work function
+            subtask_key
+                The subtask to run, or None for no subtask
+            workunit
+                The workunit key or data
+            task_id : int
+                The ID of the task being run
+            callback : callable
+                A callback to be called after the task completes its work
+            callback_args : dict
+                Keyword arguments to pass to the callback
+            errback : callable
+                A callback to be called if an exception happens during task
+                execution
+            errback_args : dict
+                Arguments to pass to errback
         """
 
         #if this was subtask find it and execute just that subtask
@@ -243,13 +265,18 @@ class Task(object):
         elif self._status == STATUS_RUNNING:
             # only start root task if not already running
             return
-        
+
         else:
             #else this is a normal task just execute it
             self.logger.debug('Task - starting task: %s' % self)
-            self.work_deferred = threads.deferToThread(self._start, args, callback, callback_args)
+            if self.get_worker():
+                self.work_deferred = threads.deferToThread(self._start, args,
+                    callback, callback_args)
+            else:
+                # Standalone; just return the result of work()
+                return self.work()
 
-        if errback:
+        if errback and self.work_deferred:
             self.work_deferred.addErrback(errback, **errback_args)
 
         return 1
@@ -258,40 +285,64 @@ class Task(object):
     def start_subtask(self, subtask, args, workunit, task_id, callback, \
                       callback_args):
         """
-        Starts a subtask.  This functions sets additional parameters needed by
-        a subtask such as workunit selection.
-        
-        This method should be overridden by subclasses of Task that wish to
-        include workunits or other subtask specific functionality.  This method
-        sets up logging for the subtask so any overridden function should likely
-        call super as well.
-        
-        @param args - arguments to pass to task
-        @param subtask - key of subtask to run
-        @param workunit - key of workunit or data of workunit
-        @param task_id - id of task being run
-        @param callback - callback to execute after task is complete
-        @param callback_args - args to pass to callback
+        Start a subtask.
+
+        This method sets additional parameters needed by
+        a subtask, such as workunit selection, and then starts the requested
+        subtask.
+
+        This method should be overridden by subclasses of `Task` that wish to
+        include workunits or other subtask specific functionality. This method
+        sets up logging for the subtask, so subclasses should probably call
+        `super()` as well.
+
+        XXX Corbin: Should this return a Deferred?
+        XXX Corbin: This function is completely stubbed. Should it raise NIE,
+        or what?
+
+        :Parameters:
+            args
+                Arguments to pass to the subtask
+            subtask
+                Key of subtask to be run
+            workunit
+                Workunit key or data
+            task_id
+                ID of the task to run
+            callback
+                Callback to execute after task completes
+            callback_args
+                Arguments to pass to callback
         """
+
         pass
 
-    
+
     def subtask_started(self, subtask, id):
         """
-        Called to inform the task that a queued subtask was started on a remote
-        worker
-        
-        @param subtask - subtask path.
-        @param id - id for workunit.
+        Callback used to inform the task that a previously queued subtask has
+        been started on a worker.
+
+        :Parameters:
+            subtask
+                Subtask path
+            id
+                ID for the workunit
         """
+
         self.logger.info('*** Workunit Started - %s:%s ***' % (subtask, id))
 
 
     def status(self):
         """
-        Returns the status of this task.  Used as a function rather than member variable so this
-        function can be overridden
+        The current status of the task.
+
+        Overrideable.
+
+        XXX Corbin: This should be a property. I patched it to be a property
+        at one point; not sure where the patch went.
         """
+
         return self._status
 
 
@@ -312,4 +363,5 @@ class Task(object):
         The default implementation returns 100 if the task is finished and 0
         otherwise.
         """
+
         return 100 if self.status == STATUS_COMPLETE else 0
