@@ -85,3 +85,9 @@ class SQLSelector(object):
         else:
             cursor.execute(self.query)
         return CursorSlicer(cursor)
+
+
+try:
+    from pydra.cluster.tasks.datasource.tokyo.selector import *
+except ImportError:
+    pass

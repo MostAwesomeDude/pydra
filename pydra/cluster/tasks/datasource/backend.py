@@ -86,3 +86,9 @@ class SQLBackend(object):
         """
 
         return bool(self.handle)
+
+
+try:
+    from pydra.cluster.tasks.datasource.tokyo.backend import *
+except ImportError:
+    pass

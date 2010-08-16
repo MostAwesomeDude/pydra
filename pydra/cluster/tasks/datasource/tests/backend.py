@@ -111,5 +111,11 @@ class PostgreSQLRealTest(SQLBackendTest):
     env_args = env_args("PYDRA_TEST_PGSQL")
 
 
+try:
+    from pydra.cluster.tasks.datasource.tokyo.tests.backend import *
+except ImportError:
+    pass
+
+
 if __name__ == "__main__":
     unittest.main()
