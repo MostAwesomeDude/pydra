@@ -206,7 +206,10 @@ class Task(object):
         Get the worker running this task, or None if the task is standalone.
         """
 
-        return self.parent.get_worker()
+        if self.parent:
+            return self.parent.get_worker()
+        else:
+            return None
 
 
     def request_worker(self, *args, **kwargs):
