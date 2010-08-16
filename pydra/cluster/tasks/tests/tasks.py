@@ -150,13 +150,26 @@ class Task_Internal_Test(unittest.TestCase):
         self.assertEqual(returned, self.worker, 'worker retrieved was not the expected worker')
 
 class StandaloneTask(Task):
-    pass
+    def work(self, **kwargs):
+        """
+        Simple work method that always returns a testable sentinel.
+        """
+
+        return range(5)
 
 class TaskStandaloneTest(unittest.TestCase):
     """
     Test `Task` functionality without running the Twisted reactor.
     """
 
+    def setUp(self):
+        self.task = StandaloneTask()
+
+    def test_trivial(self):
+        pass
+
     def test_initial_status(self):
-        task = StandaloneTask()
-        self.assertEqual(task.status(), STATUS_STOPPED)
+        self.assertEqual(self.task.status(), STATUS_STOPPED)
+
+    def test_synchronous_start(self):
+        self.assertEqual(self.task.start(), range(5))
