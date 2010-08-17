@@ -19,6 +19,7 @@
 
 import os
 import shutil
+import tempfile
 import time
 import unittest
 from datetime import datetime
@@ -33,7 +34,7 @@ from pydra.cluster.tasks.task_manager import TaskManager
 from pydra.models import TaskInstance
 from pydra.util import makedirs
 
-class TaskManager_Test(unittest.TestCase):
+class TaskManagerTest(unittest.TestCase):
 
     def setUp(self):
         self.tasks = [
@@ -47,7 +48,7 @@ class TaskManager_Test(unittest.TestCase):
 
         # setup manager with an internal cache we can alter
         self.manager = TaskManager(None, lazy_init=True)
-        pydra_settings.TASK_DIR_INTERNAL = '/var/lib/pydra/test_tasks_internal'
+        pydra_settings.TASK_DIR_INTERNAL = tempfile.mkdtemp()
 
         # find at least one task package to use for testing
         self.package = 'demo'
@@ -91,7 +92,15 @@ class TaskManager_Test(unittest.TestCase):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
-        os.removedirs(self.manager.tasks_dir_internal)
+        try:
+            os.rmdir(self.manager.tasks_dir_internal)
+        except OSError:
+            print "Warning: Directory not empty"
+            try:
+                os.removedirs(self.manager.tasks_dir_internal)
+            except OSError:
+                print "Warning: Directory still dirty"
+                shutil.rmtree(self.manager.tasks_dir_internal)
 
 
     def create_cache_entry(self, hash='FAKE_HASH'):
@@ -104,8 +113,8 @@ class TaskManager_Test(unittest.TestCase):
 
         makedirs(pkg_dir)
         shutil.copytree(pkg_dir, internal_folder)
-        
-        
+
+
     def clear_cache(self):
         """
         Clears the entire cache of all packages
@@ -113,8 +122,8 @@ class TaskManager_Test(unittest.TestCase):
         self.clear_package_cache()
         if os.path.exists(self.package_dir):
             shutil.rmtree(self.package_dir)
-        
-        
+
+
     def clear_package_cache(self):
         """
         Cleans just the cached versions of the selected task
