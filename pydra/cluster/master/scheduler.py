@@ -132,7 +132,7 @@ class TaskScheduler(Module):
 
     def _register(self, manager):
         Module._register(self, manager)
-        
+        if not self.workers: self.workers = {}
         self._queue = []
         self._active_tasks = {}     # caching uncompleted task instances
         self._idle_workers = []     # all workers are seen equal
