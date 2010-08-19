@@ -488,7 +488,6 @@ class TaskScheduler(Module):
                                 task_instance.id)
                         d.addCallback(self.run_task_successful, worker_key, subtask)
                         d.addErrback(self.run_task_failed, worker_key)            
-            
                         return worker_key, job.task_id
 
                 else:
@@ -507,11 +506,12 @@ class TaskScheduler(Module):
             queued = TaskInstance.objects.queued()
             running = TaskInstance.objects.running()
             for t in running:
-                self._queue.append([t.compute_score(), t.id])
+                self._queue.append([t.compute_score(), t])
                 self._active_tasks[t.id] = t
             for t in queued:
-                self._queue.append([t.compute_score(), t.id])
+                self._queue.append([t.compute_score(), t])
                 self._active_tasks[t.id] = t
+                t.queue_worker_request(t)
 
 
     def _update_queue(self):
