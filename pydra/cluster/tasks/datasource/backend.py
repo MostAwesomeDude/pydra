@@ -1,7 +1,9 @@
 database_names = {
+    "sqlite": ("sqlite3", "pysqlite2.dbapi2",),
     "sqlite2": ("pysqlite2.dbapi2",),
     "sqlite3": ("sqlite3",),
     "mysql": ("oursql", "MySQLdb",),
+    "oursql": ("oursql",),
     "postgres": ("psycopg2",),
 }
 
