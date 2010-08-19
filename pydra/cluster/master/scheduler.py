@@ -354,6 +354,7 @@ class TaskScheduler(Module):
                          (requester_key, subtask, '--', workunit))
 
             self._schedule()
+            return job
         else:
             # a worker request from an unknown task
             pass
