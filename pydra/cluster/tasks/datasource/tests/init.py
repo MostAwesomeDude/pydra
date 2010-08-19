@@ -33,7 +33,7 @@ class DelayableTest(unittest.TestCase):
     def test_iterslicer(self):
         ds = DataSource(IterSlicer, range(5))
         self.assertFalse(ds.delayable)
-    
+
     def test_sqlselector(self):
         ds = DataSource(SQLSelector, DataSource(SQLBackend,"sqlite3",":memory:"), "SELECT 42")
         self.assertTrue(ds.delayable)

@@ -60,9 +60,9 @@ class SQLSelector(object):
     """
     Selects rows from a SQL database, based on the given query.
     """
-    
+
     delayable = True
-    
+
     def __init__(self, db, query, *args, **kwargs):
         if hasattr(db, "handle"):
             self.handle = db.handle
@@ -77,7 +77,7 @@ class SQLSelector(object):
             self.params = args
         else:
             self.params = None
-    
+
     def __iter__(self):
         cursor = self.handle.cursor()
         if self.params:

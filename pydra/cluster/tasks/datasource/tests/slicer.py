@@ -5,11 +5,11 @@ import unittest
 from pydra.cluster.tasks.datasource.slicer import IterSlicer, CursorSlicer, CursorDumbSlicer, MapSlicer, LineSlicer
 
 class _CursorDumb(object):
-    
+
     def __init__(self, l):
         self.l = l
         self.i = 0
-    
+
     def fetchone(self):
         i = self.i
         self.i += 1
@@ -19,10 +19,10 @@ class _CursorDumb(object):
             return None
 
 class _CursorSmart(_CursorDumb):
-    
+
     def __iter__(self):
         return self
-    
+
     def next(self):
         item = self.fetchone()
         if item is None:
@@ -42,37 +42,37 @@ class IterSlicerTest(unittest.TestCase):
         self.assertEqual(self.l, [i for i in self.slicer])
 
 class CursorSlicerDumbTest(IterSlicerTest):
-    
+
     def setUp(self):
-        
+
         self.l = [(1,2), (1,3), (4,2), (1,), (0,), (None,), ()]
         self.cursor = _CursorDumb(self.l)
         self.slicer = CursorSlicer(self.cursor)
 
 class CursorSlicerSmartTest(IterSlicerTest):
-    
+
     def setUp(self):
-        
+
         self.l = [(1,2), (1,3), (4,2), (2,), (0,), (None,), ()]
         self.cursor = _CursorSmart(self.l)
         self.slicer = CursorSlicer(self.cursor)
 
 class CursorSlicerRealTest(IterSlicerTest):
-    
+
     def setUp(self):
-        
+
         from pydra.cluster.tasks.datasource.backend import SQLBackend
-        
+
         self.l = [('leicester',), ('quark',), (1,), (0,), (None,)]
-        
+
         self.backend = SQLBackend("sqlite3", ":memory:")
         self.backend.connect()
-        
+
         db = self.backend.handle
         db.execute("CREATE TABLE CHEESES (NAME)")
         db.executemany("INSERT INTO CHEESES VALUES (?)", self.l)
         db.commit()
-        
+
         self.cursor = db.execute("SELECT * FROM CHEESES")
         self.slicer = CursorSlicer(self.cursor)
 

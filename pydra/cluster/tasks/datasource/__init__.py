@@ -24,9 +24,9 @@ def iterable(i):
 def isbackend(c):
     """
     Check if the passed class is a backend.
-    
+
     They get mild special treatment to make things clearer to use.
-    
+
     :return: Whether `c` is a backend class.
     """
     m = getattr(c, "__module__", "")

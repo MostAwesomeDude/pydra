@@ -19,7 +19,7 @@ class CursorSlicer(IterSlicer):
     """
     Slicer that operates on DBAPI cursors.
     """
-    
+
     def __init__(self, cursor):
         self.cursor = cursor
         if hasattr(cursor, "__iter__"):
@@ -28,19 +28,19 @@ class CursorSlicer(IterSlicer):
             self.state = CursorDumbSlicer(cursor)
 
 class CursorDumbSlicer(object):
-    
+
     """
     Slicer that implements the iterator protocol for cursors.
-    
+
     Strictly speaking, this is optional in the DBAPI spec.
     """
-    
+
     def __init__ (self, cursor):
         self.cursor = cursor
-    
+
     def __iter__(self):
         return self
-    
+
     def next(self):
         item = self.cursor.fetchone()
         if item is None:
