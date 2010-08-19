@@ -2,10 +2,8 @@ import mmap
 import os
 import os.path
 
-from pydra.cluster.tasks.datasource.slicer import LineSlicer
-from pydra.util.key import keyable
+from pydra.cluster.tasks.datasource.slicer import LineSlicer, CursorSlicer
 
-@keyable
 class DirSelector(object):
     """
     Selects a directory, yielding files.
@@ -36,7 +34,6 @@ class DirSelector(object):
     def __len__(self):
         return len(self.files)
 
-@keyable
 class FileSelector(object):
     """
     Selects files. Can yield file-based slicers.
@@ -59,14 +56,38 @@ class FileSelector(object):
         self._handle = m
         return m
 
-@keyable
 class SQLSelector(object):
     """
-    Selects rows from a SQL database.
+    Selects rows from a SQL database, based on the given query.
     """
-
-    def __init__(self, db):
+    
+    delayable = True
+    
+    def __init__(self, db, query, *args, **kwargs):
         if hasattr(db, "handle"):
             self.handle = db.handle
         else:
             self.handle = db
+        self.query = query
+        if args and kwargs:
+            raise ValueError, "args and kwargs can't both be given"
+        if kwargs:
+            self.params = kwargs
+        elif args:
+            self.params = args
+        else:
+            self.params = None
+    
+    def __iter__(self):
+        cursor = self.handle.cursor()
+        if self.params:
+            cursor.execute(self.query, self.params)
+        else:
+            cursor.execute(self.query)
+        return CursorSlicer(cursor)
+
+
+try:
+    from pydra.cluster.tasks.datasource.tokyo.selector import *
+except ImportError:
+    pass

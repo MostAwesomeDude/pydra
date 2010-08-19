@@ -2,8 +2,33 @@
 
 import unittest
 
-from pydra.cluster.tasks.datasource.slicer import IterSlicer, MapSlicer, LineSlicer
-from pydra.util.key import thaw
+from pydra.cluster.tasks.datasource.slicer import IterSlicer, CursorSlicer, CursorDumbSlicer, MapSlicer, LineSlicer
+
+class _CursorDumb(object):
+    
+    def __init__(self, l):
+        self.l = l
+        self.i = 0
+    
+    def fetchone(self):
+        i = self.i
+        self.i += 1
+        if len(self.l) > i:
+            return self.l[i]
+        else:
+            return None
+
+class _CursorSmart(_CursorDumb):
+    
+    def __iter__(self):
+        return self
+    
+    def next(self):
+        item = self.fetchone()
+        if item is None:
+            raise StopIteration
+        else:
+            return item
 
 class IterSlicerTest(unittest.TestCase):
 
@@ -16,9 +41,40 @@ class IterSlicerTest(unittest.TestCase):
 
         self.assertEqual(self.l, [i for i in self.slicer])
 
-    def test_key(self):
+class CursorSlicerDumbTest(IterSlicerTest):
+    
+    def setUp(self):
+        
+        self.l = [(1,2), (1,3), (4,2), (1,), (0,), (None,), ()]
+        self.cursor = _CursorDumb(self.l)
+        self.slicer = CursorSlicer(self.cursor)
 
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
+class CursorSlicerSmartTest(IterSlicerTest):
+    
+    def setUp(self):
+        
+        self.l = [(1,2), (1,3), (4,2), (2,), (0,), (None,), ()]
+        self.cursor = _CursorSmart(self.l)
+        self.slicer = CursorSlicer(self.cursor)
+
+class CursorSlicerRealTest(IterSlicerTest):
+    
+    def setUp(self):
+        
+        from pydra.cluster.tasks.datasource.backend import SQLBackend
+        
+        self.l = [('leicester',), ('quark',), (1,), (0,), (None,)]
+        
+        self.backend = SQLBackend("sqlite3", ":memory:")
+        self.backend.connect()
+        
+        db = self.backend.handle
+        db.execute("CREATE TABLE CHEESES (NAME)")
+        db.executemany("INSERT INTO CHEESES VALUES (?)", self.l)
+        db.commit()
+        
+        self.cursor = db.execute("SELECT * FROM CHEESES")
+        self.slicer = CursorSlicer(self.cursor)
 
 class MapSlicerTest(unittest.TestCase):
 
@@ -30,10 +86,6 @@ class MapSlicerTest(unittest.TestCase):
     def test_trivial(self):
 
         self.assertEqual(self.d.keys(), [k for k in self.slicer])
-
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
 
 class LineSlicerTest(unittest.TestCase):
 
@@ -49,18 +101,6 @@ class LineSlicerTest(unittest.TestCase):
     def test_trivial(self):
 
         self.assertEqual([51, 108, 161], [pos for pos in self.slicer])
-
-    def test_key(self):
-
-        self.assertTrue(hasattr(self.slicer, "key") and self.slicer.key)
-
-    def test_state(self):
-
-        l = [next(self.slicer)]
-        saved = self.slicer.key
-        restored = thaw(saved)
-        l.append(next(restored))
-        self.assertEqual([51, 108], l)
 
     def test_state_slice(self):
 
