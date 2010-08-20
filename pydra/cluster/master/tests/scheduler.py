@@ -570,9 +570,52 @@ class TaskScheduler_Test(unittest.TestCase):
         self.assert_(task.status==STATUS_FAILED, task.status)
         self.assert_(False, "validate that the scheduler was advanced")
     
+    def test_task_completed(self):
+        """
+        Verifies:
+            * task is removed from active list
+            * task is recorded as completed
+            * worker is removed from active pool
+            * scheduler is advanced
+        """
+        s = self.scheduler
+        response, worker, task = self.queue_and_run_task(True)
+        s.send_results(worker.name, ((None, 'results: woot!', False),))
+        task = TaskInstance.objects.get(id=task.id)
+    
+        # validate task queue
+        self.assertFalse(s._queue, s._queue)
+        self.assertFalse(s._active_tasks, s._active_tasks)
+    
+        # validate task status
+        self.assert_(task.status==STATUS_COMPLETE)
+    
+        # validate worker status
+        self.assertFalse(s._active_workers, s._active_workers)
+        self.assertFalse(s._waiting_workers, s._waiting_workers)
+        self.assertFalse(s._main_workers, s._main_workers)
+        self.assert_(len(s._idle_workers)==1, s._idle_workers)
+        self.assert_(worker.name in s._idle_workers, (s._idle_workers, worker.name))
+        
+        # validate scheduler advanced
+        self.assert_(False, "validate that the scheduler was advanced")
+    
+    def test_subtask_completed(self):
+        """
+        Verifies:
+            * Worker is moved to waiting (held) pool
+            * Mainworker remains in active pool
+            * Mainworker is notified of completion
+            * Scheduler is advanced
+        """
+        raise NotImplementedError
+    
     def test_cancel_task(self):
         """
-        Verifies a queued task is removed from queue when canceled
+        Cancel task that is waiting in the pool
+        
+        Verifies:
+            * task is removed from queue
         """
         ti = c_task_instance()
         s = self.scheduler
@@ -583,7 +626,28 @@ class TaskScheduler_Test(unittest.TestCase):
 
     def test_cancel_task_running(self):
         """
-        Verifies a running task is stopped
+        Verifies:
+            * Worker moved from active to idle pool
+            * Scheduler is advanced
+        """
+        raise NotImplementedError
+    
+    def test_cancel_task_running_with_subtasks(self):
+        """
+        Verifies:
+            * Task is stopped
+            * SubTasks are stopped
+            * Mainworker remains in active pool
+            * Worker is moved to waiting (held) pool
+            * Scheduler is advanced
+        """
+        raise NotImplementedError
+    
+    def test_release_waiting_worker(self):
+        """
+        Verifies:
+            * Waiting worker is moved from waiting pool to idle pool
+            * Scheduler is advanced
         """
         raise NotImplementedError
     
