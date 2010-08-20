@@ -26,7 +26,9 @@ import time
 
 from django.core.paginator import Paginator, InvalidPage, EmptyPage
 from django.template import Context, loader
+
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 
 import pydra_settings
 from pydra.cluster.module import Module
@@ -58,6 +60,11 @@ class TaskManager(Module):
     ]
 
     lazy_init = False
+
+    """
+    `twisted.internet.task.LoopingCall` used to scan for new tasks.
+    """
+    autodiscover_call = None
 
     def __init__(self, scan_interval=20, lazy_init=False):
         """
@@ -102,8 +109,12 @@ class TaskManager(Module):
 
         self.__initialized = False
 
-        # in seconds, None causes no updates
+        # Interval, in seconds, between scans of the task folders for new
+        # tasks. None disables scanning.
         self.scan_interval = scan_interval
+
+        if self.scan_interval:
+            self.autodiscover_call = LoopingCall(self.autodiscover)
 
 
     def processTask(self, task, tasklist=None, parent=False):
@@ -225,8 +236,8 @@ class TaskManager(Module):
             self.init_package(pkg_name)
 
         # trigger the autodiscover procedure immediately
-        if self.scan_interval:
-            reactor.callLater(0, self.autodiscover)
+        if self.autodiscover_call:
+            self.autodiscover_call.start(self.scan_interval, True)
 
 
     def init_package(self, pkg_name, version=None):
@@ -303,9 +314,6 @@ class TaskManager(Module):
 
         for pkg_name in old_packages:
             self.emit('TASK_REMOVED', pkg_name)
-
-        if self.scan_interval:
-            reactor.callLater(self.scan_interval, self.autodiscover)
 
 
     def task_history(self, key, page):
