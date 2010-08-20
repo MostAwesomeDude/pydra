@@ -40,7 +40,7 @@ logger = logging.getLogger('root')
 
 
 class TaskManager(Module):
-    """ 
+    """
     TaskManager - Class that tracks and controls tasks available to run on the
                   cluster.
     """
@@ -66,7 +66,7 @@ class TaskManager(Module):
         @param lazy_init - lazy init causes tasks to only be loaded when
                             requested.  Assumes scan_interval=None
         """
-        
+
         self._interfaces = [
             self.list_tasks,
             self.task_history,
@@ -79,7 +79,7 @@ class TaskManager(Module):
             'TASK_STARTED':self._task_started,
             'TASK_STARTED':self._task_stopped,
         }
-        
+
         if lazy_init:
             self.lazy_init = True
         else:
@@ -102,7 +102,7 @@ class TaskManager(Module):
 
         self.__initialized = False
 
-        # in seconds, None causes no updates    
+        # in seconds, None causes no updates
         self.scan_interval = scan_interval
 
 
@@ -191,7 +191,7 @@ class TaskManager(Module):
 
         return message
 
-    
+
     def progress(self, keys=None):
         """
         builds a dictionary of progresses for tasks
@@ -217,7 +217,7 @@ class TaskManager(Module):
     def init_task_cache(self):
         """
         initializes the cache of tasks.  This scans TASKS_DIR_INTERNAL, the
-        already versioned tasks.  
+        already versioned tasks.
         """
         # read task_cache_internal (this is one-time job)
         files = os.listdir(self.tasks_dir_internal)
@@ -232,7 +232,7 @@ class TaskManager(Module):
     def init_package(self, pkg_name, version=None):
         """
         Attempts to load a single package into the registry.
-        
+
         @param pkg_name - name of package to load into the registry
         @param version - version of package to load into the registry.  Defaults
                          to None, resulting in latest version.
@@ -260,7 +260,7 @@ class TaskManager(Module):
                                 v = dir
                 else:
                     v = versions[0]
-                
+
                 # load this version
                 full_pkg_dir = os.path.join(pkg_dir, v)
                 pkg = packaging.TaskPackage(pkg_name, full_pkg_dir, v)
@@ -270,7 +270,7 @@ class TaskManager(Module):
                 self._add_package(pkg)
 
                 # invoke attached task callbacks
-                callbacks = self._task_callbacks.get(pkg_name, None)           
+                callbacks = self._task_callbacks.get(pkg_name, None)
                 module_path, cycle = self._compute_module_search_path(pkg_name)
                 while callbacks:
                     task_key, errcallback, callback, args, kw = callbacks.pop(0)
@@ -303,7 +303,7 @@ class TaskManager(Module):
 
         for pkg_name in old_packages:
             self.emit('TASK_REMOVED', pkg_name)
-        
+
         if self.scan_interval:
             reactor.callLater(self.scan_interval, self.autodiscover)
 
@@ -357,9 +357,9 @@ class TaskManager(Module):
                }
 
     def task_log(self, task_id, subtask=None, workunit_id=None):
-        """ 
+        """
         Returns the logfile for the given task.
-    
+
         @param task - id of task
         @param subtask - task path to subtask, default = None
         @param workunut - workunit key, default = None
@@ -375,14 +375,14 @@ class TaskManager(Module):
         log = fp.read()
         fp.close()
         return log
-    
+
     def retrieve_task(self, task_key, version, callback, errcallback,
             *callback_args, **callback_kwargs):
         """
         Retrieves a task and calls callback passing the retrieved task.  If the
         requested version is not available, it will be retrieved first and this
         function will be called back again.
-        
+
         @task_key: the task key, referenced as 'package_name.task_name'
         @version: the version of the task
         @callback: callback to make after the latest task code is retrieved
@@ -394,7 +394,7 @@ class TaskManager(Module):
         pkg_name = task_key[:task_key.find('.')]
         needs_update = False
         with self._lock:
-            
+
             # get the task. if configured for lazy init, this class will only
             # attempt to load a task into the registry once it is requested.
             # subsequent requests will pull from the registry.
@@ -426,7 +426,7 @@ class TaskManager(Module):
                     needs_update = True
             else:
                 # no local package contains the task with the specified
-                # version, but this does NOT mean it is an error - 
+                # version, but this does NOT mean it is an error -
                 # try synchronizing tasks first
                 needs_update = True
 
@@ -442,7 +442,7 @@ class TaskManager(Module):
 
     def list_task_keys(self):
         return [k[0] for k in self.registry.keys() if k[0].find('.') != -1]
-    
+
 
     def list_task_packages(self):
         return [k[0] for k in self.registry.keys() if k[0].find('.') == -1]
@@ -454,13 +454,13 @@ class TaskManager(Module):
         imports it into TASKS_DIR_INTERNAL.  Tasks have a hash computed that is
         used as the version.  Imported packages are also added to the registry
         and emit TASK_ADDED or TASK_UPDATED
-        
+
         After updating or adding a new task, any callbacks pending for the
         tasks (ie. task waiting for sync) will be executed.
-        
+
         This method is CPU intensive as all files within the package are SHA1
         hashed
-        
+
         @param pkg_name - name of package, also the root directory.
         @returns TaskPackage if loaded, otherwise None
         """
@@ -504,13 +504,13 @@ class TaskManager(Module):
     def get_package_location(self, pkg_name):
         return os.path.join(self.tasks_dir, pkg_name)
 
-    
+
     def _add_package(self, pkg):
         """
         Adds a package to the registry, making it available for execution.
         Packages dependant on other packages that have not been loaded yet will
         cause an exception to be raised.
-        
+
         @param pkg - TaskPackage to add
         """
         for dep in pkg.dependency:
@@ -537,7 +537,7 @@ class TaskManager(Module):
         Creates a list of import paths that a package depends on.  These paths
         must be on the python path (sys.path) for this task package to be able
         to import its dependencies
-        
+
         @param pkg_name - name of task package, also the root directory
         """
         pkg_location = self.get_package_location(pkg_name)
