@@ -36,6 +36,12 @@ def suite():
         ])
 
 
+# constants used by the tests
+WORKER_IDLE = 0
+WORKER_WAITING = 1
+WORKER_ACTIVE= 2
+
+
 class ModuleManagerProxy(ModuleManager):
     """
     Proxy of module manager used for capturing signals sent by modules that
@@ -208,6 +214,33 @@ class TaskScheduler_Test(unittest.TestCase):
                 return
         self.assert_(False, 'Worker (%s) did not have %s called' % (worker.name, function))
 
+    def assertWorkerStatus(self, worker, status, scheduler, main=True):
+        """
+        Assertion function for checking the status of a worker.  This
+        encapsulates checking the presence of the worker in various pools which
+        denote its state.  This ensures that if the code for tracking worker
+        state changes, then only this assertion needs to change.
+        """        
+        if status==WORKER_IDLE:
+            in_ = '_idle_workers'
+            not_in = ['_active_workers','_waiting_workers']
+            self.assertFalse(worker.name in scheduler._main_workers, "Worker (%s) shouldn't be in main workers" % worker.name)
+            
+        elif status==WORKER_WAITING:
+            in_ = '_waiting_workers'
+            not_in = ['_active_workers','_idle_workers']
+        
+        elif status==WORKER_ACTIVE:
+            in_ = '_active_workers'
+            not_in = ['_waiting_workers','_idle_workers']
+            
+            if main:
+                self.assert_(worker.name in scheduler._main_workers, "Worker (%s) isn't in main workers" % worker.name)
+        
+        for pool in not_in:
+            self.assertFalse(worker.name in getattr(scheduler, pool), "Worker (%s) shouldn't be in %s" % (worker.name,in_))
+        self.assert_(worker.name in getattr(scheduler, in_), "Worker (%s) isn't in %s" % (worker.name,in_))
+
     def tearDown(self):
         self.scheduler = None
         Batch.objects.all().delete()
@@ -286,10 +319,8 @@ class TaskScheduler_Test(unittest.TestCase):
         worker = self.add_worker()
         s = self.scheduler
         s.worker_status_returned([WORKER_STATUS_IDLE], worker, worker.name)
-        self.assert_(len(s._idle_workers)==1, s._idle_workers)
-        self.assertFalse(s._active_workers, s._active_workers)
-        self.assertFalse(s._waiting_workers, s._waiting_workers)
-        self.assert_(worker.name in s._idle_workers, (s._idle_workers, worker.name))
+        self.assertWorkerStatus(worker, WORKER_IDLE, s)
+
     
     def test_queue_task(self):
         """
@@ -367,16 +398,13 @@ class TaskScheduler_Test(unittest.TestCase):
             * workers remain idle
             * CLUSTER_IDLE emitted
         """
-        self.add_worker(True)
+        worker = self.add_worker(True)
         s = self.scheduler
         s._init_queue()
         
         response = s._schedule()
         self.assertFalse(response, 'scheduler was advanced')
-        self.assertTrue(s._idle_workers, s._idle_workers)
-        self.assertFalse(s._active_workers, s._active_workers)
-        self.assertFalse(s._waiting_workers, s._waiting_workers)
-        self.assertFalse(s._active_tasks, s._active_tasks)
+        self.assertWorkerStatus(worker, WORKER_IDLE, s)
     
     def test_advance_queue_no_workers(self):
         """
@@ -457,8 +485,7 @@ class TaskScheduler_Test(unittest.TestCase):
         self.assert_(task.worker==worker.name, task.worker)
         
         # verify mainworker is recorded
-        self.assert_(len(s._main_workers)==1, s._main_workers)
-        self.assert_(worker.name in s._main_workers, s._main_workers)
+        self.assertWorkerStatus(worker, WORKER_ACTIVE, s, True)
     
     def test_run_subtask_successful(self):
         """
@@ -582,33 +609,45 @@ class TaskScheduler_Test(unittest.TestCase):
         response, worker, task = self.queue_and_run_task(True)
         s.send_results(worker.name, ((None, 'results: woot!', False),))
         task = TaskInstance.objects.get(id=task.id)
-    
+        
         # validate task queue
         self.assertFalse(s._queue, s._queue)
         self.assertFalse(s._active_tasks, s._active_tasks)
-    
+        
         # validate task status
         self.assert_(task.status==STATUS_COMPLETE)
-    
+        
         # validate worker status
-        self.assertFalse(s._active_workers, s._active_workers)
-        self.assertFalse(s._waiting_workers, s._waiting_workers)
-        self.assertFalse(s._main_workers, s._main_workers)
-        self.assert_(len(s._idle_workers)==1, s._idle_workers)
-        self.assert_(worker.name in s._idle_workers, (s._idle_workers, worker.name))
+        self.assertWorkerStatus(worker, WORKER_IDLE, s)
         
         # validate scheduler advanced
         self.assert_(False, "validate that the scheduler was advanced")
     
     def test_subtask_completed(self):
         """
+        subtask on non-main_worker completes
+        
         Verifies:
             * Worker is moved to waiting (held) pool
             * Mainworker remains in active pool
             * Mainworker is notified of completion
             * Scheduler is advanced
         """
-        raise NotImplementedError
+        s = self.scheduler
+        response, main_worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(main_worker.name)
+        task.local_workunit = task
+        other_worker = self.add_worker(True)
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
+        
+        # validate worker status
+        self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
+        self.assertWorkerStatus(other_worker, WORKER_WAITING, s)
+        
+        # validate main_worker is notified
+        self.assertCalled(worker, 'receive_results')
+        self.assert_(False, "validate that the scheduler was advanced")
     
     def test_cancel_task(self):
         """
