@@ -104,7 +104,7 @@ mkdir -v "$DIR_PID"
 
 mkdir -v "$DIR_LIB/tasks"
 mkdir -v "$DIR_LIB/tasks_internal"
-mkdir -v "$DIR_LIB/tasks_sync_cache"
+mkdir -v "$DIR_LIB/task_sync_cache"
 
 
 CMD_DIRS "./pydra"                          "$DIR_SRC/pydra"
