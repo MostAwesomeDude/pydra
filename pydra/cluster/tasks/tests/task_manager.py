@@ -47,8 +47,8 @@ class TaskManagerTest(unittest.TestCase):
             self.completion[task] = None
 
         # setup manager with an internal cache we can alter
+        pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
         self.manager = TaskManager(None, lazy_init=True)
-        pydra_settings.TASK_DIR_INTERNAL = tempfile.mkdtemp()
 
         # find at least one task package to use for testing
         self.package = 'demo'
@@ -109,10 +109,8 @@ class TaskManagerTest(unittest.TestCase):
         """
         internal_folder = os.path.join(self.manager.tasks_dir_internal,
                     self.package, hash)
-        pkg_dir = '%s/%s' % (pydra_settings.TASKS_DIR, self.package)
 
-        makedirs(pkg_dir)
-        shutil.copytree(pkg_dir, internal_folder)
+        makedirs(internal_folder)
 
 
     def clear_cache(self):
