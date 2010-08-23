@@ -32,9 +32,8 @@ from twisted.internet.task import LoopingCall
 
 import pydra_settings
 from pydra.cluster.module import Module
-from pydra.cluster.tasks.tasks import *
-from pydra.cluster.tasks import packaging
-from pydra.models import *
+from pydra.cluster.tasks import packaging, TaskContainer, TaskNotFoundException
+from pydra.models import TaskInstance
 from pydra.util import graph, makedirs
 
 import logging
@@ -423,7 +422,7 @@ class TaskManager(Module):
                     module_path, cycle = self._compute_module_search_path(
                             pkg_name)
                     if cycle:
-                        errcallback(task_key, verison,
+                        errcallback(task_key, pkg.verison,
                                 'Cycle detected in dependency')
                     else:
                         callback(task_key, version, task_class, module_path,
@@ -494,7 +493,6 @@ class TaskManager(Module):
             # find updates
             if (pkg_name, None) not in self.registry:
                 signal = 'TASK_ADDED'
-                updated = True
             elif sha1_hash <> self.registry[pkg.name, None].version:
                 signal = 'TASK_UPDATED'
 
@@ -528,7 +526,7 @@ class TaskManager(Module):
             else:
                 raise RuntimeError(
                         'Package %s has unresolved dependency issues: %s' %\
-                        (pkg_name, dep))
+                        (pkg.name, dep))
             self.package_dependency.add_edge(pkg.name, dep)
         self.package_dependency.add_vertex(pkg.name)
         for key, task in pkg.tasks.iteritems():
