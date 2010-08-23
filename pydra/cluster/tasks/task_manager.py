@@ -33,6 +33,7 @@ from twisted.internet.task import LoopingCall
 import pydra_settings
 from pydra.cluster.module import Module
 from pydra.cluster.tasks import packaging, TaskContainer, TaskNotFoundException
+from pydra.logs.logger import task_log_path
 from pydra.models import TaskInstance
 from pydra.util import graph, makedirs
 
@@ -57,8 +58,6 @@ class TaskManager(Module):
     _shared = [
         'get_task',
     ]
-
-    lazy_init = False
 
     """
     `twisted.internet.task.LoopingCall` used to scan for new tasks.
@@ -86,9 +85,13 @@ class TaskManager(Module):
             'TASK_STARTED':self._task_stopped,
         }
 
-        if lazy_init:
-            self.lazy_init = True
-        else:
+        self.lazy_init = lazy_init
+
+        # Interval, in seconds, between scans of the task folders for new
+        # tasks. None disables scanning.
+        self.scan_interval = scan_interval
+
+        if not self.lazy_init:
             self._listeners['MANAGER_INIT'] = self.init_task_cache
 
         self.tasks_dir = pydra_settings.TASKS_DIR
@@ -107,10 +110,6 @@ class TaskManager(Module):
         self._callback_lock = Lock()
 
         self.__initialized = False
-
-        # Interval, in seconds, between scans of the task folders for new
-        # tasks. None disables scanning.
-        self.scan_interval = scan_interval
 
         if self.scan_interval:
             self.autodiscover_call = LoopingCall(self.autodiscover)
@@ -274,7 +273,7 @@ class TaskManager(Module):
                 # load this version
                 full_pkg_dir = os.path.join(pkg_dir, v)
                 pkg = packaging.TaskPackage(pkg_name, full_pkg_dir, v)
-                if pkg.version <> v:
+                if pkg.version != v:
                     # verification
                     logger.warn('Invalid package %s:%s' % (pkg_name, v))
                 self._add_package(pkg)
@@ -371,7 +370,6 @@ class TaskManager(Module):
         @param subtask - task path to subtask, default = None
         @param workunut - workunit key, default = None
         """
-        from pydra.logs.logger import task_log_path
 
         if subtask:
             dir, logfile = task_log_path(task_id, subtask, workunit_id)
@@ -480,7 +478,7 @@ class TaskManager(Module):
                     pkg_name, sha1_hash)
 
             pkg = self.registry.get((pkg_name, None), None)
-            if not pkg or pkg.version <> sha1_hash:
+            if not pkg or pkg.version != sha1_hash:
                 # copy this folder to tasks_dir_internal
                 try:
                     shutil.copytree(pkg_dir, internal_folder)
@@ -493,7 +491,7 @@ class TaskManager(Module):
             # find updates
             if (pkg_name, None) not in self.registry:
                 signal = 'TASK_ADDED'
-            elif sha1_hash <> self.registry[pkg.name, None].version:
+            elif sha1_hash != self.registry[pkg.name, None].version:
                 signal = 'TASK_UPDATED'
 
         if signal:
