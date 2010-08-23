@@ -353,10 +353,7 @@ class TaskManager(Module):
             pkg_dir = os.path.join(self.tasks_dir, filename)
             if os.path.isdir(pkg_dir):
                 self.read_task_package(filename)
-                try:
-                    old_packages.remove(filename)
-                except ValueError:
-                    pass
+                old_packages.discard(filename)
 
         for pkg_name in old_packages:
             self.emit('TASK_REMOVED', pkg_name)
@@ -501,7 +498,7 @@ class TaskManager(Module):
 
 
     def list_task_packages(self):
-        return [k[0] for k in self.registry.keys() if k[0].find('.') == -1]
+        return set(k[0] for k in self.registry.keys() if k[0].find('.') == -1)
 
 
     def read_task_package(self, pkg_name):
