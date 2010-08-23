@@ -5,12 +5,38 @@ import unittest
 
 from pydra.cluster.tasks.datasource import DataSource
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
+from pydra.cluster.tasks.datasource.backend import SQLBackend
+
+
+class _TestSlicer(object):
+    """
+    Slicer that returns its arguments.
+    """
+
+    def __init__(self, *iterable):
+        self.iterable = iterable
+        self.state = iter(iterable)
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        return next(self.state)
+
+
+from pydra.cluster.tasks.datasource.selector import SQLSelector
+from pydra.cluster.tasks.datasource.backend import SQLBackend
+
 
 class DelayableTest(unittest.TestCase):
 
     def test_iterslicer(self):
         ds = DataSource(IterSlicer, range(5))
         self.assertFalse(ds.delayable)
+
+    def test_sqlselector(self):
+        ds = DataSource(SQLSelector, DataSource(SQLBackend,"sqlite3",":memory:"), "SELECT 42")
+        self.assertTrue(ds.delayable)
 
 class ValidateTest(unittest.TestCase):
 
@@ -61,6 +87,11 @@ class UnpackTest(unittest.TestCase):
         expected = range(10) * 10
         for i, unpacked in enumerate(ds.unpack()):
             self.assertEqual(expected[i], unpacked)
+
+    def test_backend(self):
+        ds = DataSource(_TestSlicer, DataSource(SQLBackend,"sqlite3",":memory:"))
+        unpacked = list(ds.unpack())
+        self.assertTrue(unpacked[0].connected)
 
 if __name__ == "__main__":
     unittest.main()

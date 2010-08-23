@@ -19,6 +19,7 @@
 
 import os
 import shutil
+import tempfile
 import time
 import unittest
 from datetime import datetime
@@ -33,7 +34,7 @@ from pydra.cluster.tasks.task_manager import TaskManager
 from pydra.models import TaskInstance
 from pydra.util import makedirs
 
-class TaskManager_Test(unittest.TestCase):
+class TaskManagerTest(unittest.TestCase):
 
     def setUp(self):
         self.tasks = [
@@ -45,9 +46,11 @@ class TaskManager_Test(unittest.TestCase):
         for task in self.tasks:
             self.completion[task] = None
 
-        # setup manager with an internal cache we can alter
+        # Munge both task directories to be under our control and also
+        # different for each unit test
+        pydra_settings.TASKS_DIR = tempfile.mkdtemp()
+        pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
         self.manager = TaskManager(None, lazy_init=True)
-        pydra_settings.TASK_DIR_INTERNAL = '/var/lib/pydra/test_tasks_internal'
 
         # find at least one task package to use for testing
         self.package = 'demo'
@@ -91,7 +94,17 @@ class TaskManager_Test(unittest.TestCase):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
-        os.removedirs(self.manager.tasks_dir_internal)
+        for directory in (pydra_settings.TASKS_DIR,
+            pydra_settings.TASKS_DIR_INTERNAL):
+            try:
+                os.rmdir(directory)
+            except OSError:
+                print "Warning: Directory not empty"
+                try:
+                    os.removedirs(directory)
+                except OSError:
+                    print "Warning: Directory still dirty"
+                    shutil.rmtree(directory)
 
 
     def create_cache_entry(self, hash='FAKE_HASH'):
@@ -100,12 +113,10 @@ class TaskManager_Test(unittest.TestCase):
         """
         internal_folder = os.path.join(self.manager.tasks_dir_internal,
                     self.package, hash)
-        pkg_dir = '%s/%s' % (pydra_settings.TASKS_DIR, self.package)
 
-        makedirs(pkg_dir)
-        shutil.copytree(pkg_dir, internal_folder)
-        
-        
+        makedirs(internal_folder)
+
+
     def clear_cache(self):
         """
         Clears the entire cache of all packages
@@ -113,8 +124,8 @@ class TaskManager_Test(unittest.TestCase):
         self.clear_package_cache()
         if os.path.exists(self.package_dir):
             shutil.rmtree(self.package_dir)
-        
-        
+
+
     def clear_package_cache(self):
         """
         Cleans just the cached versions of the selected task

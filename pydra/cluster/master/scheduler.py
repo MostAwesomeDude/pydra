@@ -559,7 +559,7 @@ class TaskScheduler(Module):
         # args coming from the controller need to be parsed by the form. This
         # will give proper typing to the data and allow validation.
         if args:
-            task = self.registry[task_key]
+            task = self.task_manager.registry[task_key, None].tasks[task_key]
             form_instance = task.form(args)
             if form_instance.is_valid():
                 # repackage cleaned data

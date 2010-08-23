@@ -13,16 +13,16 @@ RUNTIME = '/var/run/pydra'
 
 
 
-DATABASE_ENGINE = 'mysql'      # 'postgresql_psycopg2', 'postgresql', 'mysql', 'sqlite3' or 'oracle'.
-DATABASE_NAME = 'pydra'        # Or path to database file if using sqlite3.
-DATABASE_USER = 'pydra'        # Not used with sqlite3.
-DATABASE_PASSWORD = 'pydra'    # Not used with sqlite3.
-DATABASE_HOST = ''             # Set to empty string for localhost. Not used with sqlite3.
-DATABASE_PORT = ''             # Set to empty string for default. Not used with sqlite3.
+DATABASE_ENGINE = 'sqlite3'                         # 'mysql', 'oracle', 'postgresql_psycopg2', 'postgresql', or 'sqlite3'.
+DATABASE_NAME = '%s/pydra.db3' % RUNTIME_FILES_DIR  # Database file path for sqlite3.
+
+                                                    # These are not used for sqlite3:
+DATABASE_USER = ''
+DATABASE_PASSWORD = ''
+DATABASE_HOST = ''                                  # Set to empty string for localhost.
+DATABASE_PORT = ''                                  # Set to empty string for default.
 
 
-# absolute path to the docroot of this site
-DOC_ROOT = '/home/peter/wrk/pydra/pydra_site'
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name

@@ -1,42 +1,60 @@
 database_names = {
-    "sqlite2": "pysqlite2.dbapi2",
-    "sqlite3": "sqlite3",
-    "mysql": "MySQLdb",
-    "postgres": "psycopg2",
+    "sqlite": ("sqlite3", "pysqlite2.dbapi2",),
+    "sqlite2": ("pysqlite2.dbapi2",),
+    "sqlite3": ("sqlite3",),
+    "mysql": ("oursql", "MySQLdb",),
+    "oursql": ("oursql",),
+    "postgres": ("psycopg2",),
 }
 
-databases = {}
+database_args = {
+    "sqlite"    : ("database",),
+    "sqlite2"   : ("database",),
+    "sqlite3"   : ("database",),
+    "mysql"     : ("host", "user", "passwd", "db", "port"),
+    "postgres"  : ("host", "user", "password", "database", "port"),
+}
 
-for name in database_names:
-    try:
-        databases[name] = __import__(database_names[name], fromlist=["bogus"])
-    except ImportError:
-        print "Warning: Couldn't import %s!" % database_names[name]
+databases = {}  # will map names to first available module from database_names
+
+
+for name, modules in database_names.items():
+    for module in modules:
+        try:
+            databases[name] = __import__(module, fromlist=["bogus"])
+        except ImportError:
+            print "Warning: Couldn't import %s!" % module
+        else:
+            break
+    if name not in databases:
         print "Warning: Disabling support for %s databases." % name
 
-# Quirk database names.
-if "sqlite3" in databases:
-    databases["sqlite"] = databases["sqlite3"]
-elif "sqlite2" in databases:
-    databases["sqlite"] = databases["sqlite2"]
 
-from pydra.util.key import keyable
-
-@keyable
 class SQLBackend(object):
     """
     Backend for interfacing with DBAPI-compliant SQL databases.
     """
 
+    backends = databases.copy()
     handle = None
 
-    def __init__(self, db, *args, **kwargs):
-        if db in databases:
-            self.dbapi = databases[db]
-        else:
-            raise ValueError, "Database %s not supported" % db
+    def __init__(self, db_name, *args):
+        """
+        Initialize a backend object for the given SQL database.
 
-        self.connect(*args, **kwargs)
+        Passed *args are paired up with keywords depending on the requested database
+        module, where None is treated like the default value (the related kwarg pair
+        is not passed to .connect() at all).
+        """
+
+        if db_name in self.backends:
+            self.dbapi = self.backends[db_name]
+            argzip = zip(database_args[db_name], args)
+        else:
+            raise ValueError, "Database %s not supported" % db_name
+
+        self.kwargs = dict((k,v) for (k,v) in argzip if v is not None)
+        self.connect()
 
     def __del__(self):
         self.disconnect()
@@ -46,10 +64,13 @@ class SQLBackend(object):
         Open a database connection.
 
         SQLBackend can only have one connection open per instance.
+        Arguments given at .init are used by default.
         """
 
         if not self.handle:
-            self.handle = self.dbapi.connect(*args, **kwargs)
+            argnew = self.kwargs.copy()
+            argnew.update(kwargs)
+            self.handle = self.dbapi.connect(*args, **argnew)
 
     def disconnect(self):
         """
@@ -67,3 +88,9 @@ class SQLBackend(object):
         """
 
         return bool(self.handle)
+
+
+try:
+    from pydra.cluster.tasks.datasource.tokyo.backend import *
+except ImportError:
+    pass

@@ -26,7 +26,6 @@ from twisted.internet import reactor, threads
 from pydra.cluster.tasks import Task, TaskNotFoundException, STATUS_CANCELLED,\
     STATUS_FAILED,STATUS_STOPPED,STATUS_RUNNING,STATUS_PAUSED,STATUS_COMPLETE
 from pydra.cluster.tasks.datasource import DataSource
-from pydra.util.key import thaw
 
 class ParallelTask(Task):
     """
