@@ -115,16 +115,14 @@ class TaskManager(Module):
             self.autodiscover_call = LoopingCall(self.autodiscover)
 
 
-    def processTask(self, task, tasklist=None, parent=False):
+    def processTask(self, task, parent=False):
         """ Iterates through a task and its children to build an array display
         information
 
         @param task: Task to process
-        @param tasklist: Array to append data onto.  Uused for recursion.
         """
-        # initial call wont have an area yet
-        if tasklist==None:
-            tasklist = []
+
+        tasklist = []
 
         #turn the task into a tuple
         processedTask = [task.__class__.__name__, parent, task.msg]
@@ -135,21 +133,19 @@ class TaskManager(Module):
         #add all children if the task is a container
         if isinstance(task,TaskContainer):
             for subtask in task.subtasks:
-                self.processTask(subtask.task, tasklist, task.id)
+                tasklist += self.processTask(subtask.task, task.id)
 
         return tasklist
 
 
 
-    def processTaskProgress(self, task, tasklist=None):
+    def processTaskProgress(self, task):
         """ Iterates through a task and its children to build an array of
         status information
         @param task: Task to process
-        @param tasklist: Array to append data onto.  Uused for recursion.
         """
-        # initial call wont have an area yet
-        if tasklist==None:
-            tasklist = []
+
+        tasklist = []
 
         #turn the task into a tuple
         processedTask = {'id':task.id, 'status':task.status(), \
@@ -162,7 +158,7 @@ class TaskManager(Module):
         #add all children if the task is a container
         if isinstance(task,TaskContainer):
             for subtask in task.subtasks:
-                self.processTaskProgress(subtask.task, tasklist)
+                tasklist += self.processTaskProgress(subtask.task)
 
         return tasklist
 
