@@ -43,8 +43,8 @@ logger = logging.getLogger('root')
 
 class TaskManager(Module):
     """
-    TaskManager - Class that tracks and controls tasks available to run on the
-                  cluster.
+    The task manager tracks and controls tasks and is a central point for the
+    cluster to enumerate, discover, and acquire tasks to run.
     """
 
     _signals = [
@@ -59,17 +59,26 @@ class TaskManager(Module):
         'get_task',
     ]
 
+    autodiscover_call = None
     """
     `twisted.internet.task.LoopingCall` used to scan for new tasks.
     """
-    autodiscover_call = None
 
     def __init__(self, scan_interval=20, lazy_init=False):
         """
-        @param scan_interval - interval at which TASKS_DIR is scanned for
-                                changes.  No scanning when set to None
-        @param lazy_init - lazy init causes tasks to only be loaded when
-                            requested.  Assumes scan_interval=None
+        Constructor.
+
+        If `lazy_init` is True, `scan_interval` is forced to 0, disabling
+        autodiscovery of tasks.
+
+        :Parameters:
+            scan_interval : int
+                If non-zero, the manager will automatically scan TASKS_DIR at
+                this interval for new tasks.
+            lazy_init : bool
+                Whether tasks should be lazily loaded. When False, tasks will
+                be loaded on discovery; when True, tasks will be loaded on
+                demand.
         """
 
         self._interfaces = [
@@ -116,10 +125,14 @@ class TaskManager(Module):
 
 
     def processTask(self, task, parent=False):
-        """ Iterates through a task and its children to build an array display
-        information
+        """
+        Given a task, return a list of lists of information about the task.
 
-        @param task: Task to process
+        :Parameters:
+            task : `Task`
+                Task to process.
+
+        :returns: A list of lists.
         """
 
         tasklist = []
@@ -165,9 +178,17 @@ class TaskManager(Module):
 
     def list_tasks(self, toplevel=True, keys=None):
         """
-        listTasks - builds a list of tasks
-        @param keys: filters list to include only these tasks
+        Return a list of tasks.
+
+        XXX actually returns a dict.
+        XXX keys is hilariously inefficient.
+        XXX toplevel is unused.
+
+        :Parameters:
+            keys : list
+                Whitelist of tasks to list.
         """
+
         message = {}
         # show all tasks by default
         if keys == None:
@@ -199,9 +220,16 @@ class TaskManager(Module):
 
     def progress(self, keys=None):
         """
-        builds a dictionary of progresses for tasks
-        @param keys: filters list to include only these tasks
+        Return a dict of task progresses.
+
+        XXX "progresses?" Really?
+        XXX keys is, yet again, inefficient
+
+        :Parameters:
+            keys : list
+                Whitelist of tasks to list.
         """
+
         message = {}
 
         # show all tasks by default
@@ -221,9 +249,12 @@ class TaskManager(Module):
 
     def init_task_cache(self):
         """
-        initializes the cache of tasks.  This scans TASKS_DIR_INTERNAL, the
-        already versioned tasks.
+        Initializes the task cache.
+
+        This method scans tasks_dir_internal for already-versioned tasks, and
+        also starts the autodiscover mechanism, if enabled.
         """
+
         # read task_cache_internal (this is one-time job)
         files = os.listdir(self.tasks_dir_internal)
         for pkg_name in files:
@@ -236,13 +267,18 @@ class TaskManager(Module):
 
     def init_package(self, pkg_name, version=None):
         """
-        Attempts to load a single package into the registry.
+        Load a single package into the registry.
 
-        @param pkg_name - name of package to load into the registry
-        @param version - version of package to load into the registry.  Defaults
-                         to None, resulting in latest version.
-        @param returns pkg if loaded, None otherwise
+        :Parameters:
+            pkg_name : str
+                The name of the package to be loaded.
+            version
+                The version of the package to be loaded, or None for the first
+                version found.
+
+        :returns: A `TaskPackage`, or None if the package could not be loaded.
         """
+
         with self._lock:
             pkg_dir = os.path.join(self.tasks_dir_internal, pkg_name)
             if os.path.isdir(pkg_dir):
@@ -290,10 +326,15 @@ class TaskManager(Module):
 
     def autodiscover(self):
         """
-        Periodically scan the task_cache folder.  This function is used for
-        checking for new or updated tasks.  This function is CPU intensive as
-        read_task_package() computes the hash of a directory.
+        Scan for new and updated tasks.
+
+        This method should not be called from external code; it is called
+        periodically every `scan_interval` seconds.
+
+        This method may chew up CPU time since it calls `read_task_package()`
+        which computes directory hashes.
         """
+
         old_packages = self.list_task_packages()
 
         files = os.listdir(self.tasks_dir)
@@ -312,7 +353,7 @@ class TaskManager(Module):
 
     def task_history(self, key, page):
         """
-        Returns a paginated list of of times a task was run.
+        Return a paginated list of times a task has run.
         """
 
         instances = TaskInstance.objects.filter(task_key=key) \
@@ -339,7 +380,7 @@ class TaskManager(Module):
 
     def task_history_detail(self, task_id):
         """
-        Returns detailed history about a specific task_instance
+        Return detailed history about a specific `TaskInstance`.
         """
 
         try:
@@ -360,11 +401,15 @@ class TaskManager(Module):
 
     def task_log(self, task_id, subtask=None, workunit_id=None):
         """
-        Returns the logfile for the given task.
+        Return the log file for the given task.
 
-        @param task - id of task
-        @param subtask - task path to subtask, default = None
-        @param workunut - workunit key, default = None
+        :Parameters:
+            task_id
+                ID of the task.
+            subtask
+                Path to subtask, or None for no subtask.
+            workunit_id
+                Workunit key, or None for no workunit.
         """
 
         if subtask:
@@ -380,18 +425,17 @@ class TaskManager(Module):
     def retrieve_task(self, task_key, version, callback, errcallback,
             *callback_args, **callback_kwargs):
         """
-        Retrieves a task and calls callback passing the retrieved task.  If the
-        requested version is not available, it will be retrieved first and this
-        function will be called back again.
+        Obtains a task through a variety of methods.
 
-        @task_key: the task key, referenced as 'package_name.task_name'
-        @version: the version of the task
-        @callback: callback to make after the latest task code is retrieved
-        @errcallback: callback to make if task retrieval fails
-        @callback_args: additional args for the callback
-        @callback_kwargs: additional keyword args for the callback
-        @return task_class, pkg_version, additional_module_search_path
+        XXX So close and yet so far to properly using Deferreds. :c
+
+        :Parameters:
+            task_key
+                The task key.
+            version
+                The task version.
         """
+
         pkg_name = task_key[:task_key.find('.')]
         needs_update = False
         with self._lock:
@@ -451,20 +495,24 @@ class TaskManager(Module):
 
     def read_task_package(self, pkg_name):
         """
-        Reads the directory corresponding to a TaskPackage from TASKS_DIR and
-        imports it into TASKS_DIR_INTERNAL.  Tasks have a hash computed that is
-        used as the version.  Imported packages are also added to the registry
-        and emit TASK_ADDED or TASK_UPDATED
+        Read a `TaskPackage` directory from the task directory and import it
+        into the internal task directory.
 
-        After updating or adding a new task, any callbacks pending for the
-        tasks (ie. task waiting for sync) will be executed.
+        This method may emit TASK_ADDED or TASK_UPDATED depending on the task
+        it processes.
 
-        This method is CPU intensive as all files within the package are SHA1
-        hashed
+        Any pending callbacks on the task will be executed after this method
+        runs.
 
-        @param pkg_name - name of package, also the root directory.
-        @returns TaskPackage if loaded, otherwise None
+        This method chews CPU because it runs hashes.
+
+        :Parameters:
+            pkg_name
+                Name of the package.
+
+        :returns: A `TaskPackage`, or None if the task is not loaded.
         """
+
         # this method is slow in finding updates of tasks
         with self._lock:
             pkg_dir = self.get_package_location(pkg_name)
@@ -507,11 +555,18 @@ class TaskManager(Module):
 
     def _add_package(self, pkg):
         """
-        Adds a package to the registry, making it available for execution.
-        Packages dependant on other packages that have not been loaded yet will
-        cause an exception to be raised.
+        Adds a package to the registry.
 
-        @param pkg - TaskPackage to add
+        This method does **not** load dependencies of the reqested package.
+
+        `RuntimeError` will be raised if the package could not be added due to
+        dependency issues.
+
+        XXX RuntimeError is overkill. :T
+
+        :Parameters:
+            pkg
+                Package to add.
         """
         for dep in pkg.dependency:
             for key in self.registry.keys():
@@ -534,11 +589,15 @@ class TaskManager(Module):
 
     def _compute_module_search_path(self, pkg_name):
         """
-        Creates a list of import paths that a package depends on.  These paths
-        must be on the python path (sys.path) for this task package to be able
-        to import its dependencies
+        Create a list of import paths that a package depends on.
 
-        @param pkg_name - name of task package, also the root directory
+        If the package's dependencies are not located in the interpreter's
+        path, then this method will not find them.
+
+        :Parameters:
+            pkg_name
+                Name of the package, and also the directory in which it is
+                located.
         """
         pkg_location = self.get_package_location(pkg_name)
         module_search_path = [pkg_location, os.path.join(pkg_location,'lib')]
@@ -553,16 +612,21 @@ class TaskManager(Module):
 
     def _task_started(self, task_key, version):
         """
-        Listener for task start.  Used for tracking Tasks that are currently
-        running.
+        Listener for task start.
+
+        Used for tracking tasks that are currently running.
         """
+
         pass
 
 
     def _task_stopped(self, task_key, version):
         """
-        Listener for task completion.  Used for deleting obsolete versions of
-        Tasks that could not be deleted earlier due it being in use
+        Listener for task completion.
+
+        Used for deleting obsolete versions of tasks that could not be deleted
+        earlier due to them being in use.
         """
+
         pass
 
