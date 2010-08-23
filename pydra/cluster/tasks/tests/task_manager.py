@@ -46,7 +46,9 @@ class TaskManagerTest(unittest.TestCase):
         for task in self.tasks:
             self.completion[task] = None
 
-        # setup manager with an internal cache we can alter
+        # Munge both task directories to be under our control and also
+        # different for each unit test
+        pydra_settings.TASKS_DIR = tempfile.mkdtemp()
         pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
         self.manager = TaskManager(None, lazy_init=True)
 
@@ -92,15 +94,17 @@ class TaskManagerTest(unittest.TestCase):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
-        try:
-            os.rmdir(self.manager.tasks_dir_internal)
-        except OSError:
-            print "Warning: Directory not empty"
+        for directory in (pydra_settings.TASKS_DIR,
+            pydra_settings.TASKS_DIR_INTERNAL):
             try:
-                os.removedirs(self.manager.tasks_dir_internal)
+                os.rmdir(directory)
             except OSError:
-                print "Warning: Directory still dirty"
-                shutil.rmtree(self.manager.tasks_dir_internal)
+                print "Warning: Directory not empty"
+                try:
+                    os.removedirs(directory)
+                except OSError:
+                    print "Warning: Directory still dirty"
+                    shutil.rmtree(directory)
 
 
     def create_cache_entry(self, hash='FAKE_HASH'):
