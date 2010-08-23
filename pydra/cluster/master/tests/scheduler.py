@@ -21,7 +21,7 @@ import unittest
 from twisted.internet.defer import Deferred
 
 from pydra.cluster.constants import *
-from pydra.cluster.master.scheduler import TaskScheduler
+from pydra.cluster.master import scheduler
 from pydra.cluster.module.module_manager import ModuleManager
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
@@ -59,6 +59,37 @@ class ModuleManagerProxy(ModuleManager):
 
 class TaskPackageProxy():
     version = 'version 1.0'
+
+
+class ThreadsProxy():
+    """ Proxy of threads module """
+    def __init__(self, testcase):
+        self.testcase = testcase
+        self.calls = []
+    
+    def deferToThread(self, func, *args, **kwargs):
+        deferred = Deferred()
+        self.calls.append((func, args, kwargs, deferred))
+        return deferred
+
+    def was_deferred(self, func):
+        for call in self.calls:
+            if call[0] == func:
+                return True
+        return False
+
+
+class CallProxy():
+    """ Proxy for a method that will record calls to it """
+    def __init__(self, func):
+        self.func = func
+        self.calls = []
+        self.enabled = True
+
+    def __call__(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
+        if self.enabled:
+            return self.func(*args, **kwargs)
 
 
 class TaskManagerProxy():
@@ -143,10 +174,20 @@ class TaskScheduler_Test(unittest.TestCase):
     
     def setUp(self):
         self.tearDown()
-        self.scheduler = TaskScheduler()
+        self.scheduler = scheduler.TaskScheduler()
         self.scheduler.task_manager = TaskManagerProxy()
         self.manager = ModuleManagerProxy()
         self.scheduler._register(self.manager)
+        
+        # intercept _schedule so that its calls can be recorded
+        self.scheduler._schedule_real = self.scheduler._schedule
+        self.scheduler._schedule = CallProxy(self.scheduler._schedule)
+        
+        # hook the threads modules in the scheduling module so we can intercept
+        # any calls to deferToThread()
+        self.threads_ = ThreadsProxy(self)
+        scheduler.threads = self.threads_
+
 
     def add_worker(self, connect=False):
         """ Helper function for adding a worker to the scheduler """
@@ -212,7 +253,7 @@ class TaskScheduler_Test(unittest.TestCase):
                 # for now only check function name.  eventually this should
                 # also check some set of parameters
                 return
-        self.assert_(False, 'Worker (%s) did not have %s called' % (worker.name, function))
+        self.fail('Worker (%s) did not have %s called' % (worker.name, function))
 
     def assertWorkerStatus(self, worker, status, scheduler, main=True):
         """
@@ -240,6 +281,15 @@ class TaskScheduler_Test(unittest.TestCase):
         for pool in not_in:
             self.assertFalse(worker.name in getattr(scheduler, pool), "Worker (%s) shouldn't be in %s" % (worker.name,in_))
         self.assert_(worker.name in getattr(scheduler, in_), "Worker (%s) isn't in %s" % (worker.name,in_))
+
+    def assertSchedulerAdvanced(self):
+        """ asserts that the scheduler was attempted to be advanced using either
+        deferToThread or directly called
+        """
+        self.assert_(self.scheduler._schedule.calls
+            or self.threads_.was_deferred(self.scheduler._schedule),
+            "No Attempt was made to advance the scheduler")
+            
 
     def tearDown(self):
         self.scheduler = None
@@ -333,7 +383,7 @@ class TaskScheduler_Test(unittest.TestCase):
         self.assert_(s._queue, s._queue)
         self.assert_(s._active_tasks, s._active_tasks)
         self.validate_queue_format()
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_queue_subtask(self):
         """
@@ -341,13 +391,9 @@ class TaskScheduler_Test(unittest.TestCase):
             * Workunit is created and added to taskinstance
             * scheduler is advanced
         """
-        self._schedule = False
-        def instrumented_schedule():
-            self._schedule = True
-        
         s = self.scheduler
         response, worker, task = self.queue_and_run_task(True)
-        s._schedule = instrumented_schedule
+        s._schedule.enabled = False
         task = s.get_worker_job(worker.name)
         s.request_worker(worker.name, 'test.foo.bar', 'args', 'workunit_key')
         
@@ -359,7 +405,7 @@ class TaskScheduler_Test(unittest.TestCase):
         self.assert_(task._worker_requests[0].workunit=='workunit_key', 'queued work request doesn''t match')
         
         # verify schedule is advanced        
-        self.assert_(self._schedule, "scheduler wasn't advanced")
+        self.assert_(s._schedule.calls, "scheduler wasn't advanced")
     
     def test_queue_subtask_unknown_task(self):
         """
@@ -518,11 +564,7 @@ class TaskScheduler_Test(unittest.TestCase):
         task = TaskInstance.objects.get(id=task.id)
         
         # validate worker status
-        self.assertFalse(s._active_workers, s._active_workers)
-        self.assertFalse(s._waiting_workers, s._waiting_workers)
-        self.assertFalse(s._main_workers, s._main_workers)
-        self.assert_(len(s._idle_workers)==1, s._idle_workers)
-        self.assert_(worker.name in s._idle_workers, (s._idle_workers, worker.name))
+        self.assertWorkerStatus(worker, WORKER_IDLE, s)
         
         # validate task is not in queue
         self.assertFalse(s._queue, s._queue)
@@ -530,7 +572,7 @@ class TaskScheduler_Test(unittest.TestCase):
         
         # validate task is failed
         self.assert_(task.status==STATUS_FAILED, task.status)
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_run_subtask_failed_mainworker(self):
         """
@@ -563,7 +605,7 @@ class TaskScheduler_Test(unittest.TestCase):
         
         # validate task is failed
         self.assert_(task.status==STATUS_FAILED, task.status)
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_run_subtask_failed_otherworker(self):
         """
@@ -595,7 +637,7 @@ class TaskScheduler_Test(unittest.TestCase):
         
         # validate task is failed
         self.assert_(task.status==STATUS_FAILED, task.status)
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_task_completed(self):
         """
@@ -613,15 +655,10 @@ class TaskScheduler_Test(unittest.TestCase):
         # validate task queue
         self.assertFalse(s._queue, s._queue)
         self.assertFalse(s._active_tasks, s._active_tasks)
-        
-        # validate task status
+
         self.assert_(task.status==STATUS_COMPLETE)
-        
-        # validate worker status
         self.assertWorkerStatus(worker, WORKER_IDLE, s)
-        
-        # validate scheduler advanced
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_subtask_completed(self):
         """
@@ -647,7 +684,7 @@ class TaskScheduler_Test(unittest.TestCase):
         
         # validate main_worker is notified
         self.assertCalled(worker, 'receive_results')
-        self.assert_(False, "validate that the scheduler was advanced")
+        self.assertSchedulerAdvanced()
     
     def test_cancel_task(self):
         """
@@ -666,21 +703,50 @@ class TaskScheduler_Test(unittest.TestCase):
     def test_cancel_task_running(self):
         """
         Verifies:
-            * Worker moved from active to idle pool
-            * Scheduler is advanced
+            * task removed from _queue
+            * request sent to worker to stop
+            * worker is not yet stopped
         """
-        raise NotImplementedError
+        s = self.scheduler
+        response, worker, task = self.queue_and_run_task(True)
+        s.cancel_task(task.id) 
+        self.assertCalled(worker, 'stop_task')
+        self.assertWorkerStatus(worker, WORKER_ACTIVE, s, True)
+        self.assertFalse(s._queue, "Task should be removed from _queue")
     
     def test_cancel_task_running_with_subtasks(self):
         """
         Verifies:
-            * Task is stopped
-            * SubTasks are stopped
+            * task removed from _queue
+            * request sent to main worker to stop it
+            * request sent to workers to stop them
             * Mainworker remains in active pool
-            * Worker is moved to waiting (held) pool
-            * Scheduler is advanced
+            * Worker remains in active pool
         """
-        raise NotImplementedError
+        s = self.scheduler
+        response, main_worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(main_worker.name)
+        task.local_workunit = task
+        other_worker = self.add_worker(True)
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        s.cancel_task(task.id)
+        
+        self.assertFalse(s._queue, "Task should be removed from _queue")
+        self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
+        self.assertWorkerStatus(other_worker, WORKER_ACTIVE, s)
+    
+    def test_worker_stopped(self):
+        """
+        Worker stopped because of a cancel request
+        
+        Verifies:
+            * Task marked canceled
+            * worked added to idle pool
+            * scheduler advanced
+        """
+        s = self.scheduler
+        response, worker, task = self.queue_and_run_task(True)
+        task = TaskInstance.objects.get(id=task.id)
     
     def test_release_waiting_worker(self):
         """
