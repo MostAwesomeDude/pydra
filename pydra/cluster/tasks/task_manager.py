@@ -100,7 +100,9 @@ class TaskManager(Module):
         # tasks. None disables scanning.
         self.scan_interval = scan_interval
 
-        if not self.lazy_init:
+        if self.lazy_init:
+            self.scan_interval = 0
+        else:
             self._listeners['MANAGER_INIT'] = self.init_task_cache
 
         self.tasks_dir = pydra_settings.TASKS_DIR
@@ -153,17 +155,26 @@ class TaskManager(Module):
 
 
     def processTaskProgress(self, task):
-        """ Iterates through a task and its children to build an array of
-        status information
-        @param task: Task to process
+        """
+        Given a task, return a list of dicts of information about the task's
+        progress and status.
+
+        :Parameters:
+            task : `Task`
+                Task to process.
+
+        :returns: A list of dicts.
         """
 
         tasklist = []
 
         #turn the task into a tuple
-        processedTask = {'id':task.id, 'status':task.status(), \
-                         'progress':task.progress(), \
-        'msg':task.progressMessage()}
+        processedTask = {
+            'id':task.id,
+            'status':task.status(),
+            'progress':task.progress(),
+            'msg':task.progressMessage()
+        }
 
         #add that task to the list
         tasklist.append(processedTask)
