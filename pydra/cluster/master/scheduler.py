@@ -132,12 +132,12 @@ class TaskScheduler(Module):
 
     def _register(self, manager):
         Module._register(self, manager)
-        
+        if not self.workers: self.workers = {}
         self._queue = []
         self._active_tasks = {}     # caching uncompleted task instances
         self._idle_workers = []     # all workers are seen equal
         self._active_workers = {}   # worker-job mappings
-        self._waiting_workers = {}  # task-worker mappings
+        self._waiting_workers = []  # task-worker mappings
         
         self._init_queue()
         reactor.callLater(self.update_interval, self._update_queue)
@@ -264,6 +264,7 @@ class TaskScheduler(Module):
                         del self._active_workers[worker_key]
                         task_instance.running_workers.remove(worker_key)
                         self._idle_workers.append(worker_key)
+                        
         else:
             # a new worker
             logger.info('A new worker:%s is added' % worker_key)
@@ -320,7 +321,7 @@ class TaskScheduler(Module):
                     task_instance.running_workers.remove(worker_key)
                     task_instance.waiting_workers.append(worker_key)
                     del self._active_workers[worker_key]
-
+                    self._waiting_workers.append(worker_key)
 
 
     def request_worker(self, requester_key, subtask, args, workunit):
@@ -354,6 +355,7 @@ class TaskScheduler(Module):
                          (requester_key, subtask, '--', workunit))
 
             self._schedule()
+            return job
         else:
             # a worker request from an unknown task
             pass
@@ -487,7 +489,6 @@ class TaskScheduler(Module):
                                 task_instance.id)
                         d.addCallback(self.run_task_successful, worker_key, subtask)
                         d.addErrback(self.run_task_failed, worker_key)            
-            
                         return worker_key, job.task_id
 
                 else:
@@ -506,11 +507,12 @@ class TaskScheduler(Module):
             queued = TaskInstance.objects.queued()
             running = TaskInstance.objects.running()
             for t in running:
-                self._queue.append([t.compute_score(), t.id])
+                self._queue.append([t.compute_score(), t])
                 self._active_tasks[t.id] = t
             for t in queued:
-                self._queue.append([t.compute_score(), t.id])
+                self._queue.append([t.compute_score(), t])
                 self._active_tasks[t.id] = t
+                t.queue_worker_request(t)
 
 
     def _update_queue(self):
@@ -725,6 +727,7 @@ class TaskScheduler(Module):
                     (worker_key, released_worker_key))
             worker = self.workers[released_worker_key]
             worker.remote.callRemote('release_worker')
+            self._waiting_workers.remove(released_worker_key)
             self.add_worker(released_worker_key)
 
 

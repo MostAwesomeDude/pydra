@@ -24,6 +24,8 @@ import time
 from django.db import models
 import simplejson
 
+from pydra.cluster.tasks import STATUS_RUNNING, STATUS_STOPPED
+
 class Node(models.Model):
     """
     Represents a node in the cluster
@@ -95,10 +97,10 @@ class TaskInstanceManager(models.Manager):
     tasks
     """
     def queued(self):
-        return self.filter(status=None, started=None)
+        return self.filter(status=STATUS_STOPPED)
 
     def running(self):
-        return self.filter(status=None).exclude(started=None)
+        return self.filter(status=STATUS_RUNNING)
 
 
 class AbstractJob(models.Model):

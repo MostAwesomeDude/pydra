@@ -19,7 +19,7 @@
 
 import unittest
 
-from cluster.tests import suite as cluster_suite
+from pydra.cluster.tests import suite as cluster_suite
 
 
 def suite():
