@@ -18,13 +18,13 @@
 """
 import unittest
 
-from twisted.internet.defer import Deferred
+
 
 from pydra.cluster.constants import *
 from pydra.cluster.master import scheduler
-from pydra.cluster.module.module_manager import ModuleManager
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
+from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, WorkerProxy
 
 def suite():
     """
@@ -42,54 +42,8 @@ WORKER_WAITING = 1
 WORKER_ACTIVE= 2
 
 
-class ModuleManagerProxy(ModuleManager):
-    """
-    Proxy of module manager used for capturing signals sent by modules that
-    are being tested.
-    """
-    modules = []
-    
-    def __init__(self, *args, **kwargs):
-        self.signals = []
-        super(ModuleManagerProxy, self).__init__(*args, **kwargs)
-
-    def emit_signal(self, signal, *args, **kwargs):
-        self.signals.append((signal, args, kwargs))
-
-
 class TaskPackageProxy():
     version = 'version 1.0'
-
-
-class ThreadsProxy():
-    """ Proxy of threads module """
-    def __init__(self, testcase):
-        self.testcase = testcase
-        self.calls = []
-    
-    def deferToThread(self, func, *args, **kwargs):
-        deferred = Deferred()
-        self.calls.append((func, args, kwargs, deferred))
-        return deferred
-
-    def was_deferred(self, func):
-        for call in self.calls:
-            if call[0] == func:
-                return True
-        return False
-
-
-class CallProxy():
-    """ Proxy for a method that will record calls to it """
-    def __init__(self, func):
-        self.func = func
-        self.calls = []
-        self.enabled = True
-
-    def __call__(self, *args, **kwargs):
-        self.calls.append((args, kwargs))
-        if self.enabled:
-            return self.func(*args, **kwargs)
 
 
 class TaskManagerProxy():
@@ -100,22 +54,6 @@ class TaskManagerProxy():
         return TaskPackageProxy()
 
 
-class WorkerProxy():
-    """
-    Proxy of worker (a twisted avatar) used for capturing remote method calls
-    during testing.
-    """
-    def __init__(self, name):
-        self.remote = self
-        self.calls = []
-        self.name = name
-
-    def callRemote(self, *args, **kwargs):
-        deferred = Deferred()
-        self.calls.append((args, kwargs, deferred))
-        return deferred
-
-
 def c_task_instance(**kwargs):
     """ Creates a task instance for testing """
     task_instance = TaskInstance()
@@ -123,7 +61,7 @@ def c_task_instance(**kwargs):
     task_instance.status = STATUS_STOPPED
     task_instance.__dict__.update(kwargs)
     task_instance.save()
-    return task_instance   
+    return task_instance 
 
 
 class TaskScheduler_Models_Test(unittest.TestCase):
@@ -279,7 +217,7 @@ class TaskScheduler_Test(unittest.TestCase):
                 self.assert_(worker.name in scheduler._main_workers, "Worker (%s) isn't in main workers" % worker.name)
         
         for pool in not_in:
-            self.assertFalse(worker.name in getattr(scheduler, pool), "Worker (%s) shouldn't be in %s" % (worker.name,in_))
+            self.assertFalse(worker.name in getattr(scheduler, pool), "Worker (%s) shouldn't be in %s" % (worker.name,pool))
         self.assert_(worker.name in getattr(scheduler, in_), "Worker (%s) isn't in %s" % (worker.name,in_))
 
     def assertSchedulerAdvanced(self):
@@ -289,7 +227,10 @@ class TaskScheduler_Test(unittest.TestCase):
         self.assert_(self.scheduler._schedule.calls
             or self.threads_.was_deferred(self.scheduler._schedule),
             "No Attempt was made to advance the scheduler")
-            
+        
+        # clear calls
+        self.scheduler._schedule.calls = []
+        self.threads_.calls = []
 
     def tearDown(self):
         self.scheduler = None
@@ -711,13 +652,24 @@ class TaskScheduler_Test(unittest.TestCase):
             * task removed from _queue
             * request sent to worker to stop
             * worker is not yet stopped
+            
+            after mainworker stop:
+            * task marked canceled
+            * worker returned to idle pool
         """
         s = self.scheduler
         response, worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(worker.name)
         s.cancel_task(task.id) 
         self.assertCalled(worker, 'stop_task')
         self.assertWorkerStatus(worker, WORKER_ACTIVE, s, True)
         self.assertFalse(s._queue, "Task should be removed from _queue")
+        
+        # verify main worker is stopped
+        s.worker_stopped(worker.name)
+        self.assertWorkerStatus(worker, WORKER_IDLE, s)
+        self.assert_(task.status == STATUS_CANCELLED, task.status)
+        self.assertSchedulerAdvanced()
     
     def test_cancel_task_running_with_subtasks(self):
         """
@@ -727,31 +679,79 @@ class TaskScheduler_Test(unittest.TestCase):
             * request sent to workers to stop them
             * Mainworker remains in active pool
             * Worker remains in active pool
+            
+            after mainworker stop:
+            * task marked canceled
+            * worker returned to idle pool
+            
+            after subtask worker stop:
+            * worker returned to idle pool
         """
+        s = self.scheduler
+        response, main_worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(main_worker.name)
+        other_worker = self.add_worker(True)
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        s.cancel_task(task.id)
+        
+        # check that stop requests sent
+        self.assertFalse(s._queue, "Task should be removed from _queue")
+        self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
+        self.assertWorkerStatus(other_worker, WORKER_ACTIVE, s, False)
+        
+        # verify main worker is stopped
+        s.worker_stopped(main_worker.name)
+        self.assertWorkerStatus(main_worker, WORKER_IDLE, s)
+        self.assert_(task.status == STATUS_CANCELLED, task.status)
+        self.assertSchedulerAdvanced()
+        
+        # verify subtask worker is stopped
+        s.worker_stopped(other_worker.name)
+        self.assertWorkerStatus(other_worker, WORKER_IDLE, s)
+        self.assertSchedulerAdvanced()    
+    
+    def test_cancel_task_running_with_held_workers(self):
+        """
+        Verifies:
+            * task removed from _queue
+            * request sent to main worker to stop it
+            * request sent to workers to stop them
+            * Mainworker remains in active pool
+            * Worker remains in active pool
+            
+            after mainworker stop:
+            * task marked canceled
+            * worker returned to idle pool
+            
+            after subtask worker stop:
+            * worker returned to idle pool
+        """
+        
         s = self.scheduler
         response, main_worker, task = self.queue_and_run_task(True)
         task = self.scheduler.get_worker_job(main_worker.name)
         task.local_workunit = task
         other_worker = self.add_worker(True)
         subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
         s.cancel_task(task.id)
         
+        # check that stop requests sent
         self.assertFalse(s._queue, "Task should be removed from _queue")
         self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
-        self.assertWorkerStatus(other_worker, WORKER_ACTIVE, s)
-    
-    def test_worker_stopped(self):
-        """
-        Worker stopped because of a cancel request
+        self.assertWorkerStatus(other_worker, WORKER_ACTIVE, s, False)
         
-        Verifies:
-            * Task marked canceled
-            * worked added to idle pool
-            * scheduler advanced
-        """
-        s = self.scheduler
-        response, worker, task = self.queue_and_run_task(True)
-        task = TaskInstance.objects.get(id=task.id)
+        # verify main worker is stopped
+        s.worker_stopped(main_worker.name)
+        self.assertWorkerStatus(main_worker, WORKER_IDLE, s)
+        self.assert_(task.status == STATUS_CANCELLED, task.status)
+        self.assertSchedulerAdvanced()
+        
+        # verify subtask worker is stopped
+        s.worker_stopped(other_worker.name)
+        self.assertWorkerStatus(other_worker, WORKER_IDLE, s)
+        self.assertSchedulerAdvanced()    
     
     def test_release_waiting_worker(self):
         """
