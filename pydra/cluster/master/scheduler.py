@@ -137,7 +137,7 @@ class TaskScheduler(Module):
         self._active_tasks = {}     # caching uncompleted task instances
         self._idle_workers = []     # all workers are seen equal
         self._active_workers = {}   # worker-job mappings
-        self._waiting_workers = {}  # task-worker mappings
+        self._waiting_workers = []  # task-worker mappings
         
         self._init_queue()
         reactor.callLater(self.update_interval, self._update_queue)
@@ -264,6 +264,7 @@ class TaskScheduler(Module):
                         del self._active_workers[worker_key]
                         task_instance.running_workers.remove(worker_key)
                         self._idle_workers.append(worker_key)
+                        
         else:
             # a new worker
             logger.info('A new worker:%s is added' % worker_key)
@@ -320,7 +321,7 @@ class TaskScheduler(Module):
                     task_instance.running_workers.remove(worker_key)
                     task_instance.waiting_workers.append(worker_key)
                     del self._active_workers[worker_key]
-
+                    self._waiting_workers.append(worker_key)
 
 
     def request_worker(self, requester_key, subtask, args, workunit):
@@ -726,6 +727,7 @@ class TaskScheduler(Module):
                     (worker_key, released_worker_key))
             worker = self.workers[released_worker_key]
             worker.remote.callRemote('release_worker')
+            self._waiting_workers.remove(released_worker_key)
             self.add_worker(released_worker_key)
 
 

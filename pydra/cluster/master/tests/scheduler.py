@@ -492,8 +492,10 @@ class TaskScheduler_Test(unittest.TestCase):
         """
         response, main_worker, task = self.queue_and_run_task(True)
         task = self.scheduler.get_worker_job(main_worker.name)
-        task.local_workunit = True
         other_worker = self.add_worker(True)
+        # queue work on mainworker
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        # queue work on other worker
         subtask_response, subtask = self.queue_and_run_subtask(main_worker)
         
         self.assert_(subtask_response, "Scheduler was not advanced")
@@ -673,17 +675,20 @@ class TaskScheduler_Test(unittest.TestCase):
         s = self.scheduler
         response, main_worker, task = self.queue_and_run_task(True)
         task = self.scheduler.get_worker_job(main_worker.name)
-        task.local_workunit = task
         other_worker = self.add_worker(True)
+        # queue work on mainworker
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        # queue work on other worker
         subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
         s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
         
         # validate worker status
         self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
         self.assertWorkerStatus(other_worker, WORKER_WAITING, s)
+        self.assert_(other_worker.name in task.waiting_workers)
         
         # validate main_worker is notified
-        self.assertCalled(worker, 'receive_results')
+        self.assertCalled(main_worker, 'receive_results')
         self.assertSchedulerAdvanced()
     
     def test_cancel_task(self):
@@ -754,5 +759,16 @@ class TaskScheduler_Test(unittest.TestCase):
             * Waiting worker is moved from waiting pool to idle pool
             * Scheduler is advanced
         """
-        raise NotImplementedError
+        s = self.scheduler
+        response, main_worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(main_worker.name)
+        task.local_workunit = task
+        other_worker = self.add_worker(True)
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
+        s.request_worker_release(main_worker.name)
     
+        self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
+        self.assertWorkerStatus(other_worker, WORKER_IDLE, s)
+        self.assertFalse(other_worker.name in task.waiting_workers)
+        self.assertSchedulerAdvanced()
