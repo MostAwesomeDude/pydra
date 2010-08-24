@@ -24,6 +24,7 @@ from pydra.cluster.constants import *
 from pydra.cluster.master import scheduler
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
+from pydra.tests import django_testcase as django
 from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, WorkerProxy
 
 def suite():
@@ -64,7 +65,7 @@ def c_task_instance(**kwargs):
     return task_instance 
 
 
-class TaskScheduler_Models_Test(unittest.TestCase):
+class TaskScheduler_Models_Test(django.TestCase):
     """
     Tests for models used by the TaskScheduler
     """
@@ -104,7 +105,7 @@ class TaskScheduler_Models_Test(unittest.TestCase):
         self.assert_(tasks.count()==1, tasks.count())
 
 
-class TaskScheduler_Test(unittest.TestCase):
+class TaskScheduler_Test(django.TestCase):
     """
     Tests for the TaskScheduler - the class responsible for tracking and
     decision making for the task queue.
@@ -255,7 +256,7 @@ class TaskScheduler_Test(unittest.TestCase):
         
         # check formatting of _active_tasks
         for key, value in s._active_tasks.items():
-            self.assert_(isinstance(key, (long,)), type(key))
+            self.assert_(isinstance(key, (long, int)), type(key))
             self.assert_(isinstance(value, (TaskInstance,)), type(value))
 
     def test_init(self):
