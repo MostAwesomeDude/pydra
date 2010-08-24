@@ -40,7 +40,9 @@ logger = logging.getLogger('root')
 
 class TaskScheduler(Module):
     """
-    Handles Scheduling tasks
+    This class handles manages available workers and task queue. It's
+    responsible for tracking the status of both workers and tasks, and
+    determining when and which workers will be assigned to tasks.
 
     Methods:
 
@@ -131,6 +133,9 @@ class TaskScheduler(Module):
 
 
     def _register(self, manager):
+        """
+        Module system call back to register this module
+        """
         Module._register(self, manager)
         if not self.workers: self.workers = {}
         self._queue = []
@@ -177,6 +182,10 @@ class TaskScheduler(Module):
         Cancel a task. Used to cancel a task that was scheduled.
         If the task is in the queue still, remove it.  If it is running then
         send signals to all workers assigned to it to stop work immediately.
+        
+        Running tasks will be removed from the queue to prevent additional
+        resources from being assigned to it, but workers may not honor the stop
+        requests.
         """
         task_id = int(task_id)
         with self._queue_lock:
@@ -236,9 +245,9 @@ class TaskScheduler(Module):
                     
                     with self._worker_lock:
                         self._main_workers.remove(worker_key)
-                        self._idle_workers.append(worker_key)
                         del self._active_workers[worker_key]
-                        
+                        self._idle_workers.append(worker_key)
+                    
                     with self._queue_lock:
                         del self._active_tasks[job.task_id]
                         if status in (STATUS_CANCELLED, STATUS_COMPLETE, STATUS_FAILED):
@@ -247,7 +256,7 @@ class TaskScheduler(Module):
                             for key in task_instance.waiting_workers:
                                 avatar = self.workers[key]
                                 avatar.remote.callRemote('release_worker')
-
+                            
                             t = [job.compute_score(), job]
                             if t in self._queue:
                                 self._queue.remove(t)
@@ -387,10 +396,14 @@ class TaskScheduler(Module):
 
 
     def get_task_instance(self, task_id):
+        """
+        Returns a TaskInstance for the given id.  This will return the cached
+        version the scheduler is using if available, otherwise it will be loaded
+        from the database
+        """
         task_instance = self._active_tasks.get(task_id, None)
         return TaskInstance.objects.get(id=task_id) if task_instance \
                                            is None else task_instance
-
 
     def get_queued_tasks(self, json_safe=True):
         """
@@ -415,7 +428,6 @@ class TaskScheduler(Module):
         elif worker_key in self._idle_workers:
             return 0
         return -1
-
 
     def _schedule(self):
         """
@@ -501,7 +513,9 @@ class TaskScheduler(Module):
 
     def _init_queue(self):
         """
-        Initialize the queue by reading the persistent store.
+        Initialize the queue by reading the persistent store.  This method is
+        used to recreate the state of the scheduler from the last time it was
+        running
         """
         with self._queue_lock:
             queued = TaskInstance.objects.queued()
@@ -513,7 +527,6 @@ class TaskScheduler(Module):
                 self._queue.append([t.compute_score(), t])
                 self._active_tasks[t.id] = t
                 t.queue_worker_request(t)
-
 
     def _update_queue(self):
         """
@@ -584,15 +597,21 @@ class TaskScheduler(Module):
     
 
     def run_task_failed(self, results, worker_key):
+        """
+        Running a task or subtask on a worker failed.  If this error occurs it
+        is likely only because of:
+            * the worker disconnected while command was executing.
+            * there is a bug within the node or worker process.  All exceptions
+            within user tasks should be caught and returned using send_results()
+        """
         # return the worker to the pool
         self.add_worker(worker_key)
 
 
     def run_task_successful(self, results, worker_key, subtask_key=None):
-        # save the history of what workers work on what task/subtask
-        # its needed for tracking finished work in ParallelTasks and will aide
-        # in Fault recovery it might also be useful for analysis purposes 
-        # if one node is faulty
+        """
+        A task or subtask successfully started on a worker.
+        """
         job = self.get_worker_job(worker_key)
         if job:
             if subtask_key:
@@ -613,9 +632,13 @@ class TaskScheduler(Module):
 
     def send_results(self, worker_key, results):
         """
-        Called by workers when they have completed their task.
-
-            Tasks runtime and log should be saved in the database
+        Called by workers when they have completed their task.  This may be
+        called for successes or failures (exceptions in user code).
+        
+        Results should be a list/tuple of lists/tuples:
+            * Subtask_key or None
+            * result data that will be returned to the main_worker
+            * boolean indicating success or failure
         """
         logger.debug('Worker:%s - sent results' % worker_key)
         # TODO: this lock does not appear to be sufficient because all of the
@@ -696,7 +719,7 @@ class TaskScheduler(Module):
         Called by workers when they have stopped due to a cancel task request.
         """
         job = self.get_worker_job(worker_key)
-        if job.subtask_key:
+        if job and job.subtask_key:
             # save information about this workunit to the database
             job.completed = datetime.now()
             job.status = STATUS_CANCELLED
