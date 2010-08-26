@@ -116,7 +116,7 @@ class WorkerTaskControls(Module):
                 if self.master:
                     deferred = self.master.callRemote("send_results", self.__results)
                     deferred.addCallback(self.send_successful)
-                    deferred.addErrback(self.send_results_failed, self.__results)
+                    deferred.addErrback(self.send_results_failed)
 
 
     def run_batch(self, key, version, task_class, module_search_path, args,
@@ -310,7 +310,7 @@ class WorkerTaskControls(Module):
                 if self.master:
                     deferred = self.master.callRemote("send_results", results)
                     deferred.addCallback(self.send_successful)
-                    deferred.addErrback(self.send_results_failed, results)
+                    deferred.addErrback(self.send_results_failed)
 
                 # master disapeared, hold results until it requests them
                 else:
