@@ -162,6 +162,18 @@
                 }
             }
 
+            /* check the date for today and return the formatted date */
+            function check_for_today(time) {
+                formatted_date = dateFormat(time, "yyyy-mm-dd");
+                now = new Date();
+                today = dateFormat(now, "yyyy-mm-dd");
+
+                if (today == formatted_date) {
+                    return dateFormat(time, "HH:MM:ss");
+                } else {
+                    return dateFormat(time, "yyyy-mm-dd HH:MM:ss");
+                }
+            }
 
             /* processes the response when queuing a task */
             function process_queued_task (data){
@@ -183,14 +195,15 @@
                 $('#form_'+ task_name).hide();
 
                 time = new Date(parseInt(data['time'])*1000);
-                formated_time = dateFormat(time, "yyyy-mm-dd HH:MM:ss")
+
+                queue_time = check_for_today(time);
 
                 // construct html
                 html =  '<tr id="instance_'+ task_instance +'">';
                 html += '<td class="task_id">'+task_instance+'</td>';
                 html += '<td class="task_name">'+ task_name +'</td>';
                 html += '<td class="progress"><div class="bar" style="display:none;"></div></td>';
-                html += '<td class="queue_time">' + formated_time +'</td>';
+                html += '<td class="queue_time">' + queue_time +'</td>';
                 html += '<td class="start_time">--</td>';
 
 
@@ -255,7 +268,7 @@
 
                             // update time started element
                             started = new Date(parseInt(status['t'])*1000);
-                            started = dateFormat(started, "yyyy-mm-dd HH:MM:ss")
+                            started = check_for_today(started);
                             $start.html(started);
 
                         } else {
