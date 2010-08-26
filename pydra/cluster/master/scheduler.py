@@ -23,7 +23,7 @@ from threading import Lock
 import time
 from datetime import datetime, timedelta
 import simplejson
-from heapq import heappush, heappop, heapify
+from heapq import heappush, heapify
 from twisted.internet import reactor, threads
 from twisted.internet.defer import Deferred, DeferredList
 

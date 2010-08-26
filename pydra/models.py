@@ -19,7 +19,6 @@
 from __future__ import with_statement
 
 from threading import Lock
-import time
 
 from django.db import models
 import simplejson

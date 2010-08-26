@@ -19,7 +19,6 @@
 
 import hashlib
 import math
-import os
 import simplejson
 
 from twisted.spread import pb

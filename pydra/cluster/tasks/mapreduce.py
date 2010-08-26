@@ -1,9 +1,7 @@
 from __future__ import with_statement
 
 from threading import Lock
-import cPickle as pickle
 import logging
-import os
 
 from twisted.internet import reactor, threads
 

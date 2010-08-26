@@ -16,7 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
-import math, re
+import re
 
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import user_passes_test

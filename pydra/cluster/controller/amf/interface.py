@@ -19,7 +19,6 @@
 import hashlib
 import datetime
 import sys
-import time
 
 
 from authenticator import AMFAuthenticator
