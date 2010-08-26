@@ -253,7 +253,7 @@ class RSAClient(object):
             #authentication failed
             logger.error('%s - rejected authentication' % remote)
             if self.errback:
-                reactor.callLater(0, errback)
+                reactor.callLater(0, self.errback)
             return
 
         if result == 0:
