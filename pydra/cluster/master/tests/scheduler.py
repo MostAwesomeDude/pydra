@@ -17,8 +17,9 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 import unittest
+import time
 
-
+from twisted.internet.defer import Deferred
 
 from pydra.cluster.constants import *
 from pydra.cluster.master import scheduler
@@ -32,7 +33,8 @@ def suite():
     Build a test suite from all the test suites in this module
     """
     return unittest.TestSuite([
-            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Test),
+            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Scheduling),
+            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Statuses),
             unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Models_Test),
         ])
 
@@ -105,12 +107,15 @@ class TaskScheduler_Models_Test(django.TestCase):
         self.assert_(tasks.count()==1, tasks.count())
 
 
-class TaskScheduler_Test(django.TestCase):
+
+
+
+class TaskScheduler_Base(django.TestCase):
     """
-    Tests for the TaskScheduler - the class responsible for tracking and
-    decision making for the task queue.
+    Base Test class for TaskScheduler - the class responsible for tracking and
+    decision making for the task queue. This class contains some base setup
+    and utility methods.
     """
-    
     def setUp(self):
         self.tearDown()
         self.scheduler = scheduler.TaskScheduler()
@@ -258,6 +263,12 @@ class TaskScheduler_Test(django.TestCase):
             self.assert_(isinstance(key, (long, int)), type(key))
             self.assert_(isinstance(value, (TaskInstance,)), type(value))
 
+    
+    
+class TaskScheduler_Scheduling(TaskScheduler_Base):
+    """
+    Tests for the TaskScheduler involving scheduling tasks and running them
+    """
     def test_init(self):
         """
         Verifies the queue starts empty
@@ -772,3 +783,232 @@ class TaskScheduler_Test(django.TestCase):
         self.assertWorkerStatus(other_worker, WORKER_IDLE, s)
         self.assertFalse(other_worker.name in task.waiting_workers)
         self.assertSchedulerAdvanced()
+
+
+class TaskScheduler_Statuses(TaskScheduler_Base):
+    """
+    Tests for the TaskScheduler involving retrieving task statuses
+
+    Verifies:
+        * returns a deferred instead of status
+        * worker has remote call issues
+        * deferred returns status after status returned from call
+        * task status is recorded properly
+    """
+    def setUp(self):
+        super(TaskScheduler_Statuses, self).setUp()
+        self.status = None
+
+    def set_status(self, status):
+        self.status = status
+
+    def assertVerifyStatus(self, task, status=STATUS_STOPPED, progress=-1):
+        """
+        helper for verifying a status is reported as expected.
+        
+        Verifies:
+            * task is in the dict
+            * dict is properly formatted:
+                * queued tasks only have status indicating as such
+                * running tasks have progress, status, and starttime.
+        """
+        self.assert_(task.id in self.status, 'task status is not in dict')
+        task_status = self.status[task.id]
+        
+        self.assert_(status==task_status['s'], 'Status does not match')
+        
+        if status==STATUS_STOPPED:
+            self.assert_(task_status.keys()==['s'],'status for queued tasks only requires status flag')
+        else:
+            self.assert_(progress==task_status['p'], 'Progress does not match')
+            self.assert_(task_status['t'], 'Progress does not have a start time')
+
+    def test_get_status(self):
+        response, worker, task = self.queue_and_run_task(True)
+        s = self.scheduler
+        deferred = s.fetch_task_status()        
+        self.assert_(isinstance(deferred, (Deferred,)), "Status should be a deferred")
+        deferred.addCallback(self.set_status)
+        
+        args, kwargs, call_deferred = self.assertCalled(worker, 'task_status')
+        call_deferred.callback(50)
+        
+        # verify that status is set by deferred. after last status callback
+        self.assert_(self.status!=None, "status should have been set")
+        self.assertVerifyStatus(task, STATUS_RUNNING, 50)
+        return self.status
+
+    def test_get_status_empty_queue(self):
+        """
+        Tests call to get status when no tasks are queued
+        
+        Verifies:
+            * status is returned immediately as a dict
+            * status is empty
+        """
+        s = self.scheduler
+        self.status = s.fetch_task_status()
+        self.assert_(isinstance(self.status, (dict,)), 'status should be a dictionary')
+        self.assert_(len(self.status)==0, 'status should be empty')
+
+    def test_get_status_all_queued(self):
+        """
+        no running tasks, only queued tasks
+        
+        Verifies:
+            * status is returned immediately as a dict
+            * statuses are marked as not running
+        """
+        s = self.scheduler
+        task0 = s._queue_task('test.foo')
+        task1 = s._queue_task('test.foo')
+        self.status = s.fetch_task_status()
+        
+        self.assert_(isinstance(self.status, (dict,)), 'status should be a dictionary')
+        self.assertVerifyStatus(task0)
+        self.assertVerifyStatus(task1)
+    
+    def test_get_status_multiple_running(self):
+        """
+        Tests status when queue contains multiple running tasks:
+        
+        Verify:
+            * status is returned as deferred
+            * status is recorded and callback called when all statuses returned
+            * status contains both properly formatted status objects
+        """
+        s = self.scheduler    
+        response0, worker0, task0 = self.queue_and_run_task(True)
+        response1, worker1, task1 = self.queue_and_run_task(True)
+        deferred = s.fetch_task_status()
+        
+        self.assert_(isinstance(deferred, (Deferred,)), "Status should be a deferred")
+        deferred.addCallback(self.set_status)
+        
+        args0, kwargs0, call_deferred0 = self.assertCalled(worker0, 'task_status')
+        call_deferred0.callback(10)
+        args1, kwargs1, call_deferred1 = self.assertCalled(worker1, 'task_status')
+        call_deferred1.callback(20)        
+        
+        # verify that status is set by deferred. after last status callback
+        self.assert_(self.status!=None, "status should have been set")
+        self.assertVerifyStatus(task0, STATUS_RUNNING, 10)
+        self.assertVerifyStatus(task1, STATUS_RUNNING, 20)
+
+    def test_get_status_mixed_queue(self):
+        """
+        Tests status when queue contains both queued and running tasks:
+        
+        Verify:
+            * status is returned as deferred
+            * status is recorded and callback called
+            * status contains both properly formatted status objects
+        """
+        s = self.scheduler
+        response0, worker0, task0 = self.queue_and_run_task(True)
+        task1 = s._queue_task('test.foo')
+        deferred = s.fetch_task_status()
+        self.assert_(isinstance(deferred, (Deferred,)), "Status should be a deferred")
+        deferred.addCallback(self.set_status)
+        
+        args, kwargs, call_deferred = self.assertCalled(worker0, 'task_status')
+        call_deferred.callback(10)
+        
+        # verify that status is set by deferred. after last status callback
+        self.assert_(self.status!=None, "status should have been set")
+        self.assertVerifyStatus(task0, STATUS_RUNNING, 10)
+        self.assertVerifyStatus(task1)
+    
+    def test_get_status_status_pending(self):
+        """
+        Subsequent calls to get_status while remote calls are pending
+        
+        Verify:
+            * deferred is returned from get_status
+            * deferred is the same as the original deferred
+        """
+        s = self.scheduler
+        response, worker, task = self.queue_and_run_task(True)
+        deferred0 = s.fetch_task_status()
+        deferred1 = s.fetch_task_status()
+        self.assert_(isinstance(deferred1, (Deferred,)), "Second status should be a deferred")
+        self.assert_(deferred0==deferred1, "deferreds should be the same object: %s vs %s" % (deferred0, deferred1))
+    
+    def test_get_status_cached(self):
+        """
+        Tests that result is cached
+        
+        Verify:
+            * status is the same object
+        """
+        s = self.scheduler
+        self.test_get_status()
+        status = s.fetch_task_status()
+        self.assert_(isinstance(status, (dict,)), "Second Status should be a dict: %s" % status )
+        self.assert_(id(status)==id(self.status), "Status is not the same object")
+    
+    def test_get_status_cached_all_queued(self):
+        """
+        Tests that result is cached
+        
+        Verify:
+            * status is the same object
+        """
+        s = self.scheduler
+        task = s._queue_task('test.foo')
+        
+        self.status = s.fetch_task_status()
+        self.assert_(isinstance(self.status, (dict,)), "Status should be a dict")
+        self.assertVerifyStatus(task)
+        
+        status = s.fetch_task_status()
+        self.assert_(isinstance(status, (dict,)), "Second status should be a dict")
+        self.assert_(id(status)==id(self.status), "Status is not the same object")
+
+    def test_get_status_cache_expired(self):
+        """
+        Verify that time delay resets cache
+        """        
+        response, worker, task = self.queue_and_run_task(True)
+        s = self.scheduler
+        deferred = s.fetch_task_status()        
+        self.assert_(isinstance(deferred, (Deferred,)), "Status should be a deferred")
+        deferred.addCallback(self.set_status)
+        
+        args, kwargs, call_deferred = self.assertCalled(worker, 'task_status')
+        call_deferred.callback(50)
+        # verify that status is set by deferred. after last status callback
+        self.assert_(self.status!=None, "status should have been set")
+        self.assertVerifyStatus(task, STATUS_RUNNING, 50)
+        
+        # check initial status call
+        # give time to expire, then retry.
+        time.sleep(4)
+        worker.calls = []
+        deferred = s.fetch_task_status()        
+        self.assert_(isinstance(deferred, (Deferred,)), "Status should be a deferred")
+        deferred.addCallback(self.set_status)
+        
+        args, kwargs, call_deferred = self.assertCalled(worker, 'task_status')
+        call_deferred.callback(50)
+        # verify that status is set by deferred. after last status callback
+        self.assert_(self.status!=None, "status should have been set")
+        self.assertVerifyStatus(task, STATUS_RUNNING, 50)
+
+    def test_get_status_cache_expired_all_queued(self):
+        """
+        Tests that result is cached
+        
+        Verify:
+            * status is the same object
+        """
+        s = self.scheduler
+        task = s._queue_task('test.foo')
+        
+        self.status = s.fetch_task_status()
+        self.assert_(isinstance(self.status, (dict,)), "Status should be a dict")
+        self.assertVerifyStatus(task)
+        time.sleep(4)
+        status = s.fetch_task_status()
+        self.assert_(isinstance(status, (dict,)), "Second status should be a dict")
+        self.assert_(id(status)!=id(self.status), "Status should not be the same object")
