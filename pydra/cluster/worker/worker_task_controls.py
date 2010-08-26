@@ -366,7 +366,7 @@ class WorkerTaskControls(Module):
         cleans up and shuts down the worker
         """
         if (results):
-            threads.deferToThread(self.shutdown)
+            reactor.callLater(self.shutdown)
 
 
     def task_status(self):
@@ -396,7 +396,7 @@ class WorkerTaskControls(Module):
         called be the Node/Master to inform this worker that it is released
         and may shutdown
         """
-        threads.deferToThread(self.shutdown)
+        reactor.callLater(self.shutdown)
 
 
     def shutdown(self):
@@ -437,7 +437,7 @@ class WorkerTaskControls(Module):
         with self._lock:
             self.__pending_releases -= 1
             if self.__pending_shutdown and self.__pending_releases == 0:
-                threads.deferToThread(self.shutdown)
+                reactor.callLater(self.shutdown)
 
 
     def return_work(self, subtask_key, workunit_key):
