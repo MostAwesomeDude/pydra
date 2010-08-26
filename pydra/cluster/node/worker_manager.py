@@ -25,7 +25,6 @@ from twisted.internet.defer import Deferred
 
 import pydra
 import pydra_settings
-from pydra.cluster.module import Module
 from pydra.cluster.auth.worker_avatar import WorkerAvatar
 from pydra.cluster.constants import *
 from pydra.cluster.module import Module

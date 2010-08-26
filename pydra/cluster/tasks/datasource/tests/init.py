@@ -5,6 +5,7 @@ import unittest
 
 from pydra.cluster.tasks.datasource import DataSource
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
+from pydra.cluster.tasks.datasource.selector import SQLSelector
 from pydra.cluster.tasks.datasource.backend import SQLBackend
 
 
@@ -22,10 +23,6 @@ class _TestSlicer(object):
 
     def next(self):
         return next(self.state)
-
-
-from pydra.cluster.tasks.datasource.selector import SQLSelector
-from pydra.cluster.tasks.datasource.backend import SQLBackend
 
 
 class DelayableTest(unittest.TestCase):
