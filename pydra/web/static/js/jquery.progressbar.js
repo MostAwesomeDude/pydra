@@ -22,9 +22,9 @@ USAGE:
                 speed        : 50,
                 showText    : true,                                            // show text with percentage in next to the progressbar? - default : true
                 width        : 120,                                            // Width of the progressbar - don't forget to adjust your image too!!!
-                boxImage    : 'http://doors.osuosl.org/media/images/progressbar.gif',        // boxImage : image around the progress bar
-                barImage    : 'http://doors.osuosl.org/media/images/progressbg_green.gif',    // Image to use in the progressbar. Can be an array of images too.
-                height        : 12                                            // Height of the progressbar - don't forget to adjust your image too!!!
+                boxImage    : '/media/images/progressbg_yellow_300.gif',             // boxImage : image around the progress bar
+                barImage    : '/media/progressbar_300.gif',                   // Image to use in the progressbar. Can be an array of images too.
+                height        : 12                                             // Height of the progressbar - don't forget to adjust your image too!!!
             };
             
             /* public methods */
