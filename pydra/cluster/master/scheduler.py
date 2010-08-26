@@ -810,10 +810,11 @@ class TaskScheduler(Module):
         statuses of subtasks requires additional logic and overhead to pass the
         intermediate results to the main worker.
         
-        @returns the current cached statuses, or a deferred if the statuses
-                are still being fetched
+        :returns: the current dictionary of statuses, or a deferred if the
+                statuses are still being fetched.  The deferred will callback
+                with the dictionary once it is complete.
         """
-
+        
         # cache updates so multiple controllers won't cause excessive calls
         # to the workers.  While a status update is in progress _task_statuses
         # will be set to deferred so all requests will return the new statuses
@@ -822,9 +823,7 @@ class TaskScheduler(Module):
         with self._fetch_status_lock:
             if self._next_task_status_update > now:
                 return self._task_statuses
-            statuses_deferred = Deferred()
-            self._task_statuses = statuses_deferred
-        self.next_task_status_update = now + timedelta(0, 3)
+        self._next_task_status_update = now + timedelta(0, 3)
         
         deferreds = []
         statuses = {}
@@ -846,9 +845,13 @@ class TaskScheduler(Module):
         if deferreds:
             deferred_list = DeferredList(deferreds, consumeErrors=True)
             deferred_list.addCallback(self.fetch_task_statuses_success,statuses)
+            with self._fetch_status_lock:
+                self._task_statuses = deferred_list
             return deferred_list
-        return self.fetch_task_statuses_success(None, statuses)
-
+        
+        with self._fetch_status_lock:
+            self._task_statuses = statuses
+        return statuses
 
     def fetch_task_status_success(self, progress, status):
         """
@@ -861,7 +864,6 @@ class TaskScheduler(Module):
         """
         status['p'] = progress
 
-
     def fetch_task_statuses_success(self, results, statuses):
         """
         Called when all workers have reported their status.  Saves the final
@@ -872,6 +874,5 @@ class TaskScheduler(Module):
         @param statuses - completed list of statuses.
         """
         with self._fetch_status_lock:
-            self._task_statuses.callback(statuses)
             self._task_statuses = statuses
         return statuses
