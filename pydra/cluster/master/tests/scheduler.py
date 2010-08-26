@@ -142,8 +142,7 @@ class TaskScheduler_Test(django.TestCase):
         """ Helper for setting up a running task """
         s = self.scheduler
         worker = self.add_worker(True)
-        task = c_task_instance()
-        s._init_queue()
+        task = s._queue_task('foo.bar')
         response = s._schedule()
         
         # complete start sequence for task, or fail it.  if no flag is given
@@ -191,7 +190,7 @@ class TaskScheduler_Test(django.TestCase):
             if _function == function:
                 # for now only check function name.  eventually this should
                 # also check some set of parameters
-                return
+                return call
         self.fail('Worker (%s) did not have %s called' % (worker.name, function))
 
     def assertWorkerStatus(self, worker, status, scheduler, main=True):
@@ -738,10 +737,10 @@ class TaskScheduler_Test(django.TestCase):
         s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
         s.cancel_task(task.id)
         
-        # check that stop requests sent
+        # check that stop requests sent, but workers remain active
         self.assertFalse(s._queue, "Task should be removed from _queue")
         self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
-        self.assertWorkerStatus(other_worker, WORKER_ACTIVE, s, False)
+        self.assertWorkerStatus(other_worker, WORKER_WAITING, s)
         
         # verify main worker is stopped
         s.worker_stopped(main_worker.name)
