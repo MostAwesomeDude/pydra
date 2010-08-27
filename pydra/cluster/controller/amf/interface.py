@@ -21,7 +21,6 @@ import datetime
 import sys
 
 
-from authenticator import AMFAuthenticator
 from twisted.application import internet
 from twisted.cred import checkers
 from twisted.internet import reactor

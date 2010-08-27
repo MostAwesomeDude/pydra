@@ -22,7 +22,6 @@ import StringIO
 import sys
 import traceback
 
-from pydra.cluster.controller.amf.authenticator import AMFAuthenticator
 import simplejson
 from twisted.application import internet
 from twisted.cred import checkers

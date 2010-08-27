@@ -23,7 +23,10 @@ import urllib
 import urllib2
 
 from pydra.cluster.auth.rsa_auth import load_crypto
-from pydra.cluster.controller import *
+from pydra.cluster.controller import ControllerException, \
+    ControllerRemoteException, CONTROLLER_ERROR_FUNCTION_NOT_FOUND, \
+    CONTROLLER_ERROR_DISCONNECTED, CONTROLLER_ERROR_NO_RSA_KEY, \
+    CONTROLLER_ERROR_AUTH_FAIL
 
 class WebControllerFunction():
     """

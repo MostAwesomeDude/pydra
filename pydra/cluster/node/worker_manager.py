@@ -28,7 +28,7 @@ from pydra.config import load_settings
 load_settings()
 import pydra_settings
 from pydra.cluster.auth.worker_avatar import WorkerAvatar
-from pydra.cluster.constants import *
+from pydra.cluster.constants import WORKER_STATUS_IDLE
 from pydra.cluster.module import Module
 from pydra.cluster.tasks.task_manager import TaskManager
 
@@ -286,7 +286,7 @@ class WorkerManager(Module):
                     # relevant bugs:
                     #    http://pydra-project.osuosl.org/ticket/158
                     #    http://bugs.python.org/issue1068268
-                    debug.warn('OSError while spawning process, failing back to pid. see ticket #158')
+                    logger.warn('OSError while spawning process, failing back to pid. see ticket #158')
                     worker.run_task_deferred.addCallback(worker.get_pid)
                 self.workers[worker_key] = worker
 
