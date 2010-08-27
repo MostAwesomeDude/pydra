@@ -51,7 +51,6 @@ class NodeManager(Module):
         """
         if values.has_key('id'):
             node = Node.objects.get(pk=values['id'])
-            updated = values['port'] == node.port
             new = False
         else:
             node = Node()
@@ -116,7 +115,6 @@ class NodeManager(Module):
         Returns status information about Nodes and Workers in the cluster
         """
         node_status = {}
-        worker_list = self.workers
         #iterate through all the nodes adding their status
         for key, node in self.nodes.items():
             worker_status = {}

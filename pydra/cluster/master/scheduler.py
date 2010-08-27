@@ -444,7 +444,6 @@ class TaskScheduler(Module):
 
         task, subtask, workunit = None, None, None
         
-        finished_main_workers = []
         with self._queue_lock:
             logger.debug('Attempting to advance scheduler: q=%s' % (len(self._queue)))
             

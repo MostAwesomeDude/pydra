@@ -205,7 +205,6 @@ class ParallelTask(Task):
         self.logger.warning('Paralleltask - Worker failure during workunit')
         with self._lock:
             #remove data from in progress
-            data = self._data_in_progress[index]
             del self._data_in_progress[index]
 
 

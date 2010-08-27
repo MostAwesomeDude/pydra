@@ -147,7 +147,6 @@ class AMFInterface(InterfaceModule):
         """
         if not self.sessions.has_key(user):
             # client has not authenticated yet.  Save session
-            authenticator = AMFAuthenticator(self.checker)
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
             self.sessions[user] = {'code':password, 'expire':expiration, 'auth':False, 'challenge':None}
 
