@@ -27,8 +27,8 @@ import simplejson
 from twisted.application import internet
 from twisted.cred import checkers
 from twisted.internet.defer import Deferred
-from twisted.web import server, resource, http, http_headers
-from twisted.web.error import ForbiddenResource, NoResource, Error
+from twisted.web import server, resource
+from twisted.web.error import NoResource
 
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.module import InterfaceModule

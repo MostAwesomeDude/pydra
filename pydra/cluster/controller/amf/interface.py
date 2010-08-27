@@ -209,7 +209,6 @@ class AMFInterface(InterfaceModule):
         # setup controller connection via AMF gateway
         # Place the namespace mapping into a TwistedGateway:
         from pyamf.remoting.gateway.twisted import TwistedGateway
-        from pyamf.remoting import gateway
         gw = TwistedGateway({ 
                         "controller": self,
                         }, authenticator=self.auth)

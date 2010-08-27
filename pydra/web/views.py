@@ -18,9 +18,7 @@
 """
 import re
 
-from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import user_passes_test
-from django.core.paginator import Paginator, InvalidPage, EmptyPage
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.template import RequestContext
@@ -31,8 +29,7 @@ import pydra_web_settings as settings
 from pydra.cluster.controller import ControllerException
 from pydra.cluster.controller.web.controller import WebController
 from pydra.forms import NodeForm
-from pydra.models import Node, TaskInstance
-from pydra.config import load_settings
+from pydra.models import Node
 
 """
 pydraController is a global variable that stores an instance of a Controller.
@@ -146,7 +143,6 @@ def discover(request):
     """
     allow users to activate the nodes that have been discovered via avahi
     """
-    from django import forms
     global pydra_controller
 
     if request.method == 'POST':

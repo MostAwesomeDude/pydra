@@ -18,7 +18,7 @@
 """
 
 from twisted.application import internet
-from twisted.cred import portal, checkers
+from twisted.cred import portal
 from twisted.spread import pb
 from zope.interface import implements
 
