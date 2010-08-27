@@ -58,6 +58,8 @@ def load_settings():
     >>> pydra_settings = pydra.config.load_settings()
 
     These three statements should be equivalent.
+
+    :returns: The pydra_settings module.
     """
 
     global pydra_settings
@@ -65,6 +67,5 @@ def load_settings():
     if not pydra_settings:
         pydra_settings = imp.load_module("pydra_settings",
             *imp.find_module("pydra_settings", CONFIG_DIR))
-        import pydra_settings
 
     return pydra_settings
