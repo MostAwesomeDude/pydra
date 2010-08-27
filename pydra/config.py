@@ -26,6 +26,7 @@ file should be importable as pydra.config allowing these paths to be located.
 """
 
 import imp
+import sys
 import os
 
 CONFIG_DIR = [
@@ -44,6 +45,8 @@ def configure_django_settings(settings='pydra_settings'):
 
     if not os.environ.has_key('DJANGO_SETTINGS_MODULE'):
         os.environ['DJANGO_SETTINGS_MODULE'] = settings
+
+    sys.path += CONFIG_DIR
 
 
 def load_settings():
