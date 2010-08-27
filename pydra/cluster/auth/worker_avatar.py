@@ -49,7 +49,15 @@ class WorkerAvatar(ModuleAvatar, RSAAvatar):
         node_key = server.priv_key
         master_key = server.priv_key
 
-        ModuleAvatar.__init__(self, server.manager._remotes['WORKER'])
+        try:
+            remotes = server.manager._remotes['WORKER']
+        except KeyError:
+            # this shouldn't happen, but there are no functions exposed for
+            # the worker to use.
+            remotes = []
+            logger.warning("There are no remotes configured for Workers.  The connected worker will not be allowed to do anything")
+
+        ModuleAvatar.__init__(self, remotes)
         RSAAvatar.__init__(self, master_key, None, node_key, server.worker_authenticated, True)
 
 
