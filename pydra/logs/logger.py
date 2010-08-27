@@ -25,6 +25,8 @@ from logging import FileHandler
 import os
 from threading import Lock
 
+from pydra.config import load_settings
+load_settings()
 import pydra_settings as settings
 from pydra.util import makedirs
 

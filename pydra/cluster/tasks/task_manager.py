@@ -30,6 +30,8 @@ from django.template import Context, loader
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 from pydra.cluster.module import Module
 from pydra.cluster.tasks import packaging, TaskContainer, TaskNotFoundException

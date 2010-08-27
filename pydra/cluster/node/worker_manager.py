@@ -24,6 +24,8 @@ from threading import RLock
 from twisted.internet.defer import Deferred
 
 import pydra
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 from pydra.cluster.auth.worker_avatar import WorkerAvatar
 from pydra.cluster.constants import *
