@@ -26,7 +26,7 @@ from pydra.cluster.master import scheduler
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
 from pydra.tests import django_testcase as django
-from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, WorkerProxy
+from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, RemoteProxy
 
 def suite():
     """
@@ -106,10 +106,6 @@ class TaskScheduler_Models_Test(django.TestCase):
         tasks = TaskInstance.objects.running()        
         self.assert_(tasks.count()==1, tasks.count())
 
-
-
-
-
 class TaskScheduler_Base(django.TestCase):
     """
     Base Test class for TaskScheduler - the class responsible for tracking and
@@ -136,7 +132,7 @@ class TaskScheduler_Base(django.TestCase):
     def add_worker(self, connect=False):
         """ Helper function for adding a worker to the scheduler """
         
-        worker = WorkerProxy('localhost:%d'%len(self.scheduler.workers))
+        worker = RemoteProxy('localhost:%d'%len(self.scheduler.workers))
         self.scheduler.workers[worker.name] = worker
         if connect:
             # connect the proxy worker fully so that it can be scheduled

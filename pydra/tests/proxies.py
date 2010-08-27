@@ -19,7 +19,7 @@
 from twisted.internet.defer import Deferred
 
 from pydra.cluster.module.module_manager import ModuleManager
-
+from pydra.cluster.auth.worker_avatar import WorkerAvatar
 
 class ModuleManagerProxy(ModuleManager):
     """
@@ -30,10 +30,31 @@ class ModuleManagerProxy(ModuleManager):
     
     def __init__(self, *args, **kwargs):
         self.signals = []
+        self.testcase = None
         super(ModuleManagerProxy, self).__init__(*args, **kwargs)
 
     def emit_signal(self, signal, *args, **kwargs):
         self.signals.append((signal, args, kwargs))
+
+    def assertEmitted(self, signal, *args, **kwargs):
+        """ asserts that the signal was emitted """        
+        self.testcase.assert_(self.testcase!=None, "ModuleManagerProxy.testcase was not set, cannot assert emitted signals")
+        
+        if args or kwargs:
+            #detailed match
+            for t in self.signals:
+                signal_, args_, kwargs_ = t
+                if signal_==signal and args_==args and kwargs_==kwargs:
+                    return
+            self.testcase.fail("exact signal (%s) was not emitted: %s" % (signal, self.signals))
+            
+        else:
+            # simple match
+            for t in self.signals:
+                signal_, args_, kwargs_ = t
+                if t==signal:
+                    return args, kwargs
+            self.testcase.fail("signal (%s) was not emitted: %s" % (signal, self.signals))
 
 
 class ThreadsProxy():
@@ -72,7 +93,7 @@ class CallProxy():
             return self.func(*args, **kwargs)
 
 
-class WorkerProxy():
+class RemoteProxy():
     """
     Proxy of worker (a twisted avatar) used for capturing remote method calls
     during testing.
@@ -86,3 +107,11 @@ class WorkerProxy():
         deferred = Deferred()
         self.calls.append((args, kwargs, deferred))
         return deferred
+    
+    
+class WorkerAvatarProxy(WorkerAvatar):
+    """
+    Worker avatar proxy that uses a remote proxy instead of a real remote
+    """
+    def attached(self, mind):
+        self.remote = RemoteProxy(self.name)
