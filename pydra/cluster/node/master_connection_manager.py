@@ -97,3 +97,4 @@ class MasterConnectionManager(Module):
         callback made by MasterAvatar when it successfully connects
         """
         self.master = master_avatar
+        self.emit('MASTER_CONNECTED')
