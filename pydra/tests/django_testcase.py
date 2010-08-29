@@ -22,6 +22,8 @@ import sys
 
 from django.db import connection
 
+from pydra.tests import MuteStdout
+
 
 class TestCase(unittest.TestCase):
     """
@@ -60,7 +62,9 @@ class TestCase(unittest.TestCase):
             os.environ['DJANGO_SETTINGS_MODULE'] = 'pydra_settings'
         
         # create test db.
-        cls.test_db = connection.creation.create_test_db(autoclobber=True)
+        with MuteStdout():
+            cls.test_db = connection.creation.create_test_db(autoclobber=True)
+        
     
     
     @classmethod
@@ -73,4 +77,5 @@ class TestCase(unittest.TestCase):
             del os.environ['DJANGO_SETTINGS_MODULE']
         except KeyError:
             pass
-        connection.creation.destroy_test_db(cls.test_db)
+        with MuteStdout():
+            connection.creation.destroy_test_db(cls.test_db)
