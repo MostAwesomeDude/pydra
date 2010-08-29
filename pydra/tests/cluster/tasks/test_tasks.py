@@ -24,6 +24,9 @@ from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
     STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
     STATUS_COMPLETE
 from pydra.cluster.tasks.tasks import Task
+from pydra.cluster.tasks.parallel_task import ParallelTask
+
+from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask, WorkerProxy
 
 class Task_TwistedTest(twisted_unittest.TestCase):
     """

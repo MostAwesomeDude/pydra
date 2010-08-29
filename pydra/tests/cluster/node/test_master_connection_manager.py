@@ -18,6 +18,11 @@
 """
 import unittest
 
+# configure pydra and django environment
+from pydra.config import configure_django_settings, load_settings
+configure_django_settings()
+load_settings()
+
 from pydra.cluster.node import master_connection_manager
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import RemoteProxy

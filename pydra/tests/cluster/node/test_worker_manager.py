@@ -20,10 +20,16 @@ import unittest
 
 from twisted.internet.defer import Deferred
 
+# configure pydra and django environment
+from pydra.config import configure_django_settings, load_settings
+configure_django_settings()
+load_settings()
+
 from pydra.cluster.node import worker_manager
-from pydra.cluster.node.tests.worker_connection_manager import WorkerConnectionManagerMixin
 from pydra.cluster.constants import WORKER_STATUS_IDLE
 from pydra.cluster.tasks import STATUS_UNKNOWN
+
+from pydra.tests.cluster.node.test_worker_connection_manager import WorkerConnectionManagerMixin
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, RemoteProxy, WorkerAvatarProxy
 

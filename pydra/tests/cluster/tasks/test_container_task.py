@@ -22,7 +22,10 @@ from threading import Event
 from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
 
-from pydra.cluster.tasks.tasks import *
+from pydra.cluster.tasks import STATUS_STOPPED, STATUS_COMPLETE, STATUS_PAUSED
+from pydra.cluster.tasks.task_container import TaskContainer
+from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask
+
 
 class StatusSimulatingTaskProxy():
     """
