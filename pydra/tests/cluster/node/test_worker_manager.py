@@ -28,15 +28,6 @@ from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, RemoteProxy, WorkerAvatarProxy
 
 
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    return unittest.TestSuite([
-            unittest.TestLoader().loadTestsFromTestCase(WorkerManager),
-        ])
-
-
 class PopenProxy():
     """ proxy class for subprocess.Popen.  This allows us to mock the actions
     of Popen without actually spawning processes, which could get very messy """

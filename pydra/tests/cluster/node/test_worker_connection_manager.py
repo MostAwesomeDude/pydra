@@ -23,14 +23,6 @@ from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import WorkerAvatarProxy
 
 
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    return unittest.TestSuite([
-            unittest.TestLoader().loadTestsFromTestCase(WorkerConnectionManager),
-        ])
-
 class WorkerConnectionManagerMixin():
     """
     TestCase mixin that contains functions for initializing

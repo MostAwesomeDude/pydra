@@ -23,15 +23,6 @@ from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import RemoteProxy
 
 
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    return unittest.TestSuite([
-            unittest.TestLoader().loadTestsFromTestCase(MasterConnectionManager),
-        ])
-
-
 class MasterConnectionManagerMixin():
     def setUp(self):
         self.master_connection_manager = master_connection_manager.MasterConnectionManager()

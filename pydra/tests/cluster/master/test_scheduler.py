@@ -29,16 +29,6 @@ from pydra.tests import django_testcase as django
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, RemoteProxy
 
-def suite():
-    """
-    Build a test suite from all the test suites in this module
-    """
-    return unittest.TestSuite([
-            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Scheduling),
-            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Statuses),
-            unittest.TestLoader().loadTestsFromTestCase(TaskScheduler_Models_Test),
-        ])
-
 
 # constants used by the tests
 WORKER_IDLE = 0
