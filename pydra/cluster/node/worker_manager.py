@@ -29,6 +29,7 @@ from pydra.cluster.module import Module
 from pydra.cluster.auth.worker_avatar import WorkerAvatar
 from pydra.cluster.constants import *
 from pydra.cluster.module import Module
+from pydra.cluster.tasks import STATUS_UNKNOWN
 from pydra.cluster.tasks.task_manager import TaskManager
 
 import logging
@@ -42,7 +43,7 @@ class WorkerManager(Module):
     def __init__(self):
         self._remotes = [
             ('MASTER',self.init_node),
-
+            
             # worker proxy - functions exposed to the master that are for the
             # most part just passed through to the worker
             ('MASTER', self.kill_worker),
@@ -53,34 +54,32 @@ class WorkerManager(Module):
             ('MASTER', self.receive_results),
             ('MASTER', self.release_worker),
             ('MASTER', self.subtask_started),
-
+            
             # master proxy - functions exposed to the workers that are passed
             # through to the Master
             ('WORKER', self.send_results),
             ('WORKER', self.request_worker),
             ('WORKER', self.worker_stopped),
             ('WORKER', self.request_worker_release)
-
+            
         ]
-
+        
         self._friends = {
             'task_manager' : TaskManager,
         }
-
+        
         self._listeners = {
             'WORKER_CONNECTED':self.run_task_delayed,
             'WORKER_DISCONNECTED':self.clean_up_finished_worker
         }
-
+        
         self.__lock = RLock()
         self.workers_finishing = []
         self.initialized = False
 
-
     def _register(self, manager):
         Module._register(self, manager)
         self.workers = {}
-
 
     def clean_up_finished_worker(self, worker):
         """
@@ -102,7 +101,6 @@ class WorkerManager(Module):
                     except OSError:
                         logger.warn('Error cleaning up worker process, retrying')
 
-
     def init_node(self, avatar_name, master_host, master_port, node_key):
         """
         Initializes the node so it ready for use.  Workers will not be started
@@ -113,14 +111,13 @@ class WorkerManager(Module):
             self.master_host = master_host
             self.master_port = master_port
             self.node_key = node_key
-
+        
         self.emit('NODE_INITIALIZED', node_key)
-
 
     def kill_worker(self, master, worker_key, kill=False, fail=True):
         """
         Stops a worker process.
-
+        
         @param worker_key: key of worker to kill
         @param kill: send SIGKILL instead of SIGTERM. Default is signal
                      is SIGTERM.  SIGKILL should only be used in extreme cases
@@ -136,21 +133,21 @@ class WorkerManager(Module):
             worker.finished = True
             logger.debug('Stopping %s with %s' % \
                         (worker_key, 'SIGKILL' if kill else 'SIGTERM'))
-
+            
             # python >= 2.6 required for Popen.kill() and Popen.terminate()
             if 'kill' in Popen.__dict__:
                 if kill:
                     worker.popen.kill()
                 else:
                     worker.popen.terminate()
-
+            
             else:
                 import os
                 if kill:
                     os.system('kill -9 %s' % worker.popen.pid)
                 else:
                     os.system('kill %s' % worker.popen.pid)
-
+        
         if fail:
             self.send_results(worker_key, 'Terminated by user', \
                               worker.workunit_key, failed=True)
@@ -165,7 +162,6 @@ class WorkerManager(Module):
         """
         return self.master.remote.callRemote(remote, worker, *args, **kwargs)
 
-
     def proxy_to_worker(self, remote, worker_id, *args, **kwargs):
         """
         Proxy a function to a worker.  function and args are just
@@ -177,14 +173,12 @@ class WorkerManager(Module):
         worker = self.workers[worker_id]
         return worker.remote.callRemote(remote, *args, **kwargs)
 
-
     def receive_results(self, master, *args, **kwargs):
         """
         Function called to make the subtask receive the results processed by
         another worker
         """
         return self.proxy_to_worker('receive_results', *args, **kwargs)
-
 
     def release_worker(self, master, worker_id, *args, **kwargs):
         """
@@ -204,28 +198,26 @@ class WorkerManager(Module):
         
         return deferred
 
-
     def request_worker(self, *args, **kwargs):
         return self.proxy_to_master('request_worker', *args, **kwargs)
-
 
     def request_worker_release(self, *args, **kwargs):
         return self.proxy_to_master('request_worker_release', *args, **kwargs)
 
-
     def retrieve_task_failed(self, *args, **kwargs):
         pass
-
 
     def run_task(self, avatar, worker_key, key, version, args={}, \
             workunits=None, main_worker=None, task_id=None):
         """
-        Runs a task on this node.  This function should
+        Runs a task on this node.  This function will first retrieve the task
+        from the task manager.  The task manager will load the task, this may
+        involve synchronizing code from a remote source, but that should be
+        transparent to this functionality.
         """
         self.task_manager.retrieve_task(key, version, self._run_task, \
                 self.retrieve_task_failed, worker_key, args, workunits, \
                 main_worker, task_id)
-
 
     def _run_task(self, key, version, task_class, module_search_path, \
             worker_key, args={}, workunits=None, main_worker=None, task_id=None):
@@ -236,7 +228,7 @@ class WorkerManager(Module):
         explicit and deliberate division of repsonsibility.  Allowing
         decisions here dilutes the ability of the Master to control the
         cluster
-
+        
         @param key - task key
         @param version - version of task to run
         @param task_class - task class to be created TODO why is this here?
@@ -251,7 +243,7 @@ class WorkerManager(Module):
         logger.info('RunTask:%s  key=%s  sub=%s  main=%s' \
             % (task_id, key, workunits, main_worker))
         worker = None
-
+        
         with self.__lock:
             if worker_key in self.workers:
                 # worker exists.  reuse it.
@@ -285,10 +277,10 @@ class WorkerManager(Module):
                     # relevant bugs:
                     #    http://pydra-project.osuosl.org/ticket/158
                     #    http://bugs.python.org/issue1068268
-                    debug.warn('OSError while spawning process, failing back to pid. see ticket #158')
+                    logger.warn('OSError while spawning process, failing back to pid. see ticket #158')
                     worker.run_task_deferred.addCallback(worker.get_pid)
                 self.workers[worker_key] = worker
-
+            
             worker.key = key
             worker.version = version
             worker.args = args
@@ -298,7 +290,7 @@ class WorkerManager(Module):
                 worker.local_workunits = workunits
             else:
                 worker.workunits = workunits
-
+            
             return worker.run_task_deferred
 
 
@@ -310,18 +302,18 @@ class WorkerManager(Module):
         the deferreds back to master.
         """
         sent_deferred = worker.run_task_deferred
-        deferred = self._run_task(worker.key, worker.version, None, None, \
+        if sent_deferred:
+            deferred = self._run_task(worker.key, worker.version, None, None, \
                 worker.worker_key, worker.args, worker.workunits, \
                 worker.main_worker, worker.task_id)
-        deferred.addCallback(sent_deferred.callback)
-
+            deferred.addCallback(sent_deferred.callback)
 
     def send_results(self, worker_key, results, *args, **kwargs):
         """
         Proxy for sending results to master.  Once this method is called the
         Node takes responsibility for ensuring that the results are delivered.
         This includes failover for when the Master goes away.
-
+        
         If this is the mainworker for a task the worker will shut itself down
         as soon as it receives confirmation that the results have been handed 
         off to this Node.
@@ -331,19 +323,18 @@ class WorkerManager(Module):
             if worker.main_worker == worker_key and not worker.local_workunits:
                 self.emit('WORKER_FINISHED', worker)
                 worker.finished = True
-
+            
             else:
                 # worker may be reused to clear all args to avoid confusion
                 worker.workunits = None
                 worker.local_workunits = None
-
+            
             deferred = self.proxy_to_master('send_results', worker_key, \
                                                 results, *args, **kwargs)
             worker.results = results
             # deferred.addErrback(self.send_results_failed, worker)
-
+        
         return worker.finished
-
 
     def send_results_failed(self, worker):
         """
@@ -361,17 +352,15 @@ class WorkerManager(Module):
                 logger.error('results failed to send by master is still here')
                 #deferred = self.master.callRemote("send_results", task_results, task_results)
                 #deferred.addErrback(self.send_results_failed, task_results, task_results)
-
+            
             else:
                 # nope really isn't connected.  set flag.  even if connection 
                 # is in progress this thread has the lock and reconnection cant 
                 # finish till we release it
                 self.workers_finishing.append(worker)
 
-
     def stop_task(self, master, worker_id):
         return self.proxy_to_worker('stop_task', worker_id)
-
 
     def subtask_started(self, master, worker, *args):
         """
@@ -383,7 +372,6 @@ class WorkerManager(Module):
         """
         return self.proxy_to_worker('subtask_started', worker, *args)
 
-
     def task_status(self, master, worker_id):
         """
         Returns status of task this task is performing
@@ -391,8 +379,7 @@ class WorkerManager(Module):
         if worker_id in self.workers and self.workers[worker_id].remote:
             return self.proxy_to_worker('task_status', worker_id)
         else:
-            return -1
-
+            return STATUS_UNKNOWN
 
     def worker_status(self, master, worker_id):
         """
@@ -403,7 +390,6 @@ class WorkerManager(Module):
                 return self.proxy_to_worker('status', worker_id)
             else:
                 return (WORKER_STATUS_IDLE,)
-
 
     def worker_stopped(self, worker, *args, **kwargs):
         with self.__lock:
