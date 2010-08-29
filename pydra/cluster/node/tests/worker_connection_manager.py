@@ -19,7 +19,9 @@
 import unittest
 
 from pydra.cluster.node import worker_connection_manager
-from pydra.tests.proxies import ModuleManagerProxy, WorkerAvatarProxy
+from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+from pydra.tests.proxies import WorkerAvatarProxy
+
 
 def suite():
     """
@@ -29,26 +31,34 @@ def suite():
             unittest.TestLoader().loadTestsFromTestCase(WorkerConnectionManager),
         ])
 
-
-class WorkerConnectionManager(unittest.TestCase):
-    
+class WorkerConnectionManagerMixin():
+    """
+    TestCase mixin that contains functions for initializing
+    WorkerConnectionManager and workers for a Node
+    """
     def setUp(self):
-        self.tearDown()
+        """ Initialize a WorkerConnectionManager """
         self.wcm = worker_connection_manager.WorkerConnectionManager()
-        self.manager = ModuleManagerProxy()
-        self.manager.testcase = self
         self.wcm._register(self.manager)
-    
-    def tearDown(self):
-        pass
-    
-    def add_worker(self, finished=False):
+
+    def add_worker(self, main=False, finished=False):
         """ Helper Function for creating and connecting avatars """
         avatar = WorkerAvatarProxy(self.wcm, "worker:%s" % len(self.wcm.workers))
         avatar.attached(None)
         self.wcm.worker_authenticated(avatar)
         avatar.finished = finished
         return avatar
+
+
+class WorkerConnectionManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionManagerMixin):
+    
+    def setUp(self):
+        self.tearDown()
+        ModuleTestCaseMixIn.setUp(self)
+        WorkerConnectionManagerMixin.setUp(self)
+    
+    def tearDown(self):
+        pass
     
     def test_enable_workers(self):
         """
