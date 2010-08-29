@@ -19,7 +19,6 @@
 import hashlib
 import datetime
 import sys
-import time
 
 
 from authenticator import AMFAuthenticator
@@ -31,6 +30,8 @@ from twisted.web import server, resource
 
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.module import InterfaceModule
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 
 # init logging

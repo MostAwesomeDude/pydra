@@ -17,6 +17,8 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 from rsa_auth import RSAAvatar
 from pydra.cluster.auth.module_avatar import ModuleAvatar

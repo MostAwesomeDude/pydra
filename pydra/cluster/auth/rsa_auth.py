@@ -19,13 +19,12 @@
 
 import hashlib
 import math
-import os
 import simplejson
 
 from twisted.spread import pb
 from twisted.python.randbytes import secureRandom
 from twisted.conch.ssh.keys import Key
-from twisted.internet import threads
+from twisted.internet import reactor
 from Crypto.PublicKey import RSA
 
 import logging
@@ -254,7 +253,7 @@ class RSAClient(object):
             #authentication failed
             logger.error('%s - rejected authentication' % remote)
             if self.errback:
-                threads.deferToThread(errback)
+                reactor.callLater(0, self.errback)
             return
 
         if result == 0:
@@ -268,7 +267,7 @@ class RSAClient(object):
 
         #successful! begin init'ing the node.
         if self.callback:
-            threads.deferToThread(self.callback, **kwargs)
+            reactor.callLater(0, self.callback, **kwargs)
 
 
     def exchange_keys(self, remote, callback=None, server_key=None, **kwargs):
@@ -307,7 +306,7 @@ class RSAClient(object):
             save_key(json_key, **kwargs)
 
         if callback:
-            threads.deferToThread(callback, save_key=save_key, server_key=rsa_key, **kwargs)
+            reactor.callLater(0, callback, save_key=save_key, server_key=rsa_key, **kwargs)
 
 
 def generate_keys(size=4096):

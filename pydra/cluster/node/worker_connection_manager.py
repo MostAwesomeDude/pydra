@@ -23,6 +23,8 @@ from twisted.application import internet
 from twisted.cred import checkers, portal
 from twisted.spread import pb
 
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 from pydra.cluster.auth.node_realm import NodeRealm
 from pydra.cluster.auth.rsa_auth import load_crypto

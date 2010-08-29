@@ -22,6 +22,8 @@ from dbus.mainloop.glib import DBusGMainLoop
 
 from pydra.cluster.module import Module
 from pydra.models import Node
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 
 # init logging

@@ -22,6 +22,8 @@ from twisted.cred import portal, checkers
 from twisted.spread import pb
 from zope.interface import implements
 
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.auth.master_avatar import MasterAvatar

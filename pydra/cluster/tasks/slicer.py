@@ -3,7 +3,7 @@ from __future__ import with_statement
 from threading import Lock
 
 import cPickle as pickle
-import os, logging
+import logging
 
 import MySQLdb
 

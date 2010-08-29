@@ -17,7 +17,7 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from datetime import datetime
+import datetime
 
 from django.template.defaultfilters import stringfilter
 from django import template
@@ -147,8 +147,23 @@ def int_date(int_):
     """
     Filter that converts an int to a DateTime
     """
-    return datetime.fromtimestamp(int_)
+    return datetime.datetime.fromtimestamp(int_)
 register.filter('int_date', int_date)
+
+
+@register.filter(name="today")
+def today(then):
+    """
+    Formatting filter for datetimes that special-cases today.
+    """
+
+    today = datetime.date.today()
+    if today == then.date():
+        formatted = then.strftime("%H:%M:%S")
+    else:
+        formatted = then.strftime("%Y-%m-%d %H:%M:%S")
+
+    return formatted
 
 
 @register.filter(name='generic')
@@ -156,7 +171,7 @@ def generic(obj):
     """
     Filter that aides in rendering the structure of an unknown object.  This
     function returns a template name that either recurses into a list/dict or
-    displays a value.  
+    displays a value.
     """
     if isinstance(obj, (list, tuple)):
         return 'generic/list.html'
@@ -171,16 +186,14 @@ def more(content, length=50):
     Limits length of content.  If the content goes beyond the specified amount
     the maximum amount is displayed with a "more" link.  The full content
     is placed in a <div class="more"> tag.
-    
+
     The div tag can then be used for a popup/drilldown/expander/etc that
     displays the content when "more" is clicked on.  This filter does not
     define what that is.
     """
     if len(content) < length:
         return content
-    
+
     word_break = content[:length-8].rfind(' ')
     return mark_safe('%s  <span class="more_button">... more</span><div class="more">%s</div>' \
                      % (content[:word_break], content))
-    
-    

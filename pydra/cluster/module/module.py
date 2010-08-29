@@ -98,6 +98,3 @@ class Module(object):
         convenience function for emitting signals    
         """
         self.manager.emit_signal(signal, *args, **kwargs)
-
-
-    

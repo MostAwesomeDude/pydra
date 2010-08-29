@@ -19,7 +19,6 @@
 
 from module_avatar import ModuleAvatar
 from rsa_auth import RSAAvatar
-from Crypto.PublicKey import RSA
 
 import logging
 logger = logging.getLogger('root')

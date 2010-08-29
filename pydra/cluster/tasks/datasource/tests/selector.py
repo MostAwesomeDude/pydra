@@ -1,14 +1,24 @@
 #!/usr/bin/env python
 
+import os.path
 import unittest
 
 from pydra.cluster.tasks.datasource.selector import DirSelector, FileSelector, SQLSelector
+
+# Odds are very good that you don't want to touch this. Both trial and
+# unittest have path quirks, and this seems to correctly handle both of them.
+cheesedir = os.path.abspath(os.path.join(os.path.dirname(__file__),
+    "cheeses"))
 
 class DirSelectorCheeseTest(unittest.TestCase):
 
     def setUp(self):
 
-        self.ds = DirSelector("cheeses")
+        self.ds = DirSelector(cheesedir)
+
+    def test_trivial(self):
+
+        pass
 
     def test_length(self):
 
@@ -18,7 +28,11 @@ class FileSelectorTest(unittest.TestCase):
 
     def setUp(self):
 
-        self.fs = FileSelector("cheeses/cheddar.txt")
+        self.fs = FileSelector(os.path.join(cheesedir, "cheddar.txt"))
+
+    def test_trivial(self):
+
+        pass
 
     def test_handle(self):
 
@@ -48,6 +62,10 @@ class SQLSelectorTest(unittest.TestCase):
 
     def test_trivial(self):
 
+        pass
+
+    def test_select(self):
+
         query = "SELECT * FROM CHEESES"
         selector = SQLSelector(self.backend, query)
         self.assertEqual(self.l, [k for k in selector])
@@ -70,6 +88,4 @@ class SQLSelectorTest(unittest.TestCase):
         self.assertRaises(ValueError, SQLSelector, self.backend, query, "quark", "leicester", it="ni")
 
 if __name__ == "__main__":
-    import os.path
-    os.chdir(os.path.dirname(__file__))
     unittest.main()

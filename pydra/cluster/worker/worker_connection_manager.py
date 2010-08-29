@@ -103,7 +103,6 @@ class WorkerConnectionManager(Module):
         """
         Make initial connections to all Nodes
         """
-        import fileinput
 
         logger.info('worker:%s - connecting to Node @ %s:%s' % (self.worker_key, 'localhost', self.master_port))
         reactor.connectTCP('localhost', self.master_port, self.factory)

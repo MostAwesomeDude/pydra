@@ -116,7 +116,7 @@ class WorkerTaskControls(Module):
                 if self.master:
                     deferred = self.master.callRemote("send_results", self.__results)
                     deferred.addCallback(self.send_successful)
-                    deferred.addErrback(self.send_results_failed, self.__results)
+                    deferred.addErrback(self.send_results_failed)
 
 
     def run_batch(self, key, version, task_class, module_search_path, args,
@@ -310,7 +310,7 @@ class WorkerTaskControls(Module):
                 if self.master:
                     deferred = self.master.callRemote("send_results", results)
                     deferred.addCallback(self.send_successful)
-                    deferred.addErrback(self.send_results_failed, results)
+                    deferred.addErrback(self.send_results_failed)
 
                 # master disapeared, hold results until it requests them
                 else:
@@ -366,7 +366,7 @@ class WorkerTaskControls(Module):
         cleans up and shuts down the worker
         """
         if (results):
-            threads.deferToThread(self.shutdown)
+            reactor.callLater(self.shutdown)
 
 
     def task_status(self):
@@ -396,7 +396,7 @@ class WorkerTaskControls(Module):
         called be the Node/Master to inform this worker that it is released
         and may shutdown
         """
-        threads.deferToThread(self.shutdown)
+        reactor.callLater(self.shutdown)
 
 
     def shutdown(self):
@@ -437,7 +437,7 @@ class WorkerTaskControls(Module):
         with self._lock:
             self.__pending_releases -= 1
             if self.__pending_shutdown and self.__pending_releases == 0:
-                threads.deferToThread(self.shutdown)
+                reactor.callLater(self.shutdown)
 
 
     def return_work(self, subtask_key, workunit_key):

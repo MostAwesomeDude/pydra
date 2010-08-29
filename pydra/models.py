@@ -19,10 +19,9 @@
 from __future__ import with_statement
 
 from threading import Lock
-import time
 
 from django.db import models
-import simplejson
+from django.utils import simplejson
 
 from pydra.cluster.tasks import STATUS_RUNNING, STATUS_STOPPED
 
@@ -80,7 +79,6 @@ class Node(models.Model):
             return None
 
         else:
-            from django.utils import simplejson
             from Crypto.PublicKey import RSA
 
             pub_raw = simplejson.loads(self.pub_key)

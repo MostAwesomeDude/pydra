@@ -25,8 +25,9 @@ import unittest
 from datetime import datetime
 
 #environment must be configured before loading tests
-from pydra.config import configure_django_settings
+from pydra.config import configure_django_settings, load_settings
 configure_django_settings()
+load_settings()
 import pydra_settings
 
 from pydra.cluster.tasks import TaskNotFoundException, packaging

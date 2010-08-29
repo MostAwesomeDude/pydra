@@ -27,6 +27,8 @@ from twisted.spread import pb
 from pydra.models import Node
 from pydra.cluster.module import Module, ModuleReferenceable
 from pydra.cluster.auth.rsa_auth import RSAClient, load_crypto
+from pydra.config import load_settings
+load_settings()
 import pydra_settings
 
 import logging

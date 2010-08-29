@@ -8,8 +8,9 @@ to locate the pydra_settings file.
 
 from django.core.management import execute_manager, ManagementUtility
 
-from pydra.config import configure_django_settings
+from pydra.config import configure_django_settings, load_settings
 configure_django_settings()
+load_settings()
 import pydra_settings as settings
 
 if __name__ == "__main__":
