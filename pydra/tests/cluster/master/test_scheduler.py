@@ -21,6 +21,11 @@ import time
 
 from twisted.internet.defer import Deferred
 
+# configure pydra and django environment
+from pydra.config import configure_django_settings, load_settings
+configure_django_settings()
+load_settings()
+
 from pydra.cluster.constants import *
 from pydra.cluster.master import scheduler
 from pydra.cluster.tasks import *
