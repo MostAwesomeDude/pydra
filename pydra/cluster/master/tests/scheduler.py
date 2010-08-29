@@ -26,6 +26,7 @@ from pydra.cluster.master import scheduler
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
 from pydra.tests import django_testcase as django
+from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, RemoteProxy
 
 def suite():
@@ -106,7 +107,7 @@ class TaskScheduler_Models_Test(django.TestCase):
         tasks = TaskInstance.objects.running()        
         self.assert_(tasks.count()==1, tasks.count())
 
-class TaskScheduler_Base(django.TestCase):
+class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
     """
     Base Test class for TaskScheduler - the class responsible for tracking and
     decision making for the task queue. This class contains some base setup
@@ -127,7 +128,6 @@ class TaskScheduler_Base(django.TestCase):
         # any calls to deferToThread()
         self.threads_ = ThreadsProxy(self)
         scheduler.threads = self.threads_
-
 
     def add_worker(self, connect=False):
         """ Helper function for adding a worker to the scheduler """
@@ -180,19 +180,7 @@ class TaskScheduler_Base(django.TestCase):
             
         return response, subtask
 
-    def assertCalled(self, worker, function):
-        """
-        Assertion function for checking if a worker had a specific callback
-        called
-        """
-        for call in worker.calls:
-            args, kwargs, deferred = call
-            _function = args[0]
-            if _function == function:
-                # for now only check function name.  eventually this should
-                # also check some set of parameters
-                return call
-        self.fail('Worker (%s) did not have %s called' % (worker.name, function))
+    
 
     def assertWorkerStatus(self, worker, status, scheduler, main=True):
         """
