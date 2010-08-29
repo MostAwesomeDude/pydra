@@ -74,7 +74,6 @@ class WorkerConnectionManager(Module):
         self.worker_connection_manager = self
         self.workers = {}
 
-
     def enable_workers(self, node_key):
         """
         Enables workers to login.  cannot happen until the Node has received
@@ -84,21 +83,19 @@ class WorkerConnectionManager(Module):
             logger.debug('enabling worker: %s:%i' % (node_key, i) )
             self.worker_checker.addUser('%s:%s' % (node_key, i) , '1234')
 
-
     def get_worker_service(self, master):
         """
         constructs a twisted service for Workers to connect to 
         """
         logger.info('WorkerConnectionManager - starting server on port %s' % pydra_settings.WORKER_PORT)
-
+        
         # setup cluster connections
         realm = NodeRealm()
         realm.server = self
-
+        
         p = portal.Portal(realm, [self.worker_checker])
- 
+        
         return internet.TCPServer(pydra_settings.WORKER_PORT, pb.PBServerFactory(p))
-
 
     def remove_worker(self, worker):
         """
@@ -112,7 +109,6 @@ class WorkerConnectionManager(Module):
                 logger.debug('Removing worker from pool: %s' % worker.name)
                 del self.workers[worker.name]
 
-
     def worker_authenticated(self, worker):
         """
         Callback when a worker has been successfully authenticated
@@ -122,7 +118,6 @@ class WorkerConnectionManager(Module):
         with self._lock:
             self.workers[worker.name] = worker
         self.emit('WORKER_CONNECTED', worker)
-
 
     def worker_disconnected(self, worker):
         """
@@ -135,6 +130,3 @@ class WorkerConnectionManager(Module):
                 logger.debug('Removing worker from pool: %s' % worker.name)
                 del self.workers[worker.name]
         self.emit('WORKER_DISCONNECTED', worker)
-
-    
-
