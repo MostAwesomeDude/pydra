@@ -46,7 +46,6 @@ class ModuleTestCaseMixIn():
     
     def callback(self, results, key='callback', *args, **kwargs):
         """ generic function for use as a callback. records that it was called """
-        print key
         self.callbacks.append(key)
     
     def assertCallback(self, key):
