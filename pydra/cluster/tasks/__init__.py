@@ -16,7 +16,7 @@
     You should have received a copy of the GNU General Public License
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
-
+STATUS_UNKNOWN = -3
 STATUS_CANCELLED = -2;
 STATUS_FAILED = -1;
 STATUS_STOPPED = 0;
