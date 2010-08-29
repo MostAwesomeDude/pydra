@@ -35,6 +35,7 @@ class ModuleManagerProxy(ModuleManager):
 
     def emit_signal(self, signal, *args, **kwargs):
         self.signals.append((signal, args, kwargs))
+        super(ModuleManagerProxy, self).emit_signal(signal, *args, **kwargs)
 
     def assertEmitted(self, signal, *args, **kwargs):
         """ asserts that the signal was emitted """        
@@ -45,16 +46,33 @@ class ModuleManagerProxy(ModuleManager):
             for t in self.signals:
                 signal_, args_, kwargs_ = t
                 if signal_==signal and args_==args and kwargs_==kwargs:
-                    return
+                    return t
             self.testcase.fail("exact signal (%s) was not emitted: %s" % (signal, self.signals))
             
         else:
             # simple match
             for t in self.signals:
                 signal_, args_, kwargs_ = t
-                if t==signal:
-                    return args, kwargs
+                if signal_==signal:
+                    return t
             self.testcase.fail("signal (%s) was not emitted: %s" % (signal, self.signals))
+
+    def assertNotEmitted(self, signal, *args, **kwargs):
+        """ asserts that the signal was not emitted """
+        self.testcase.assert_(self.testcase!=None, "ModuleManagerProxy.testcase was not set, cannot assert emitted signals")
+        if args or kwargs:
+            #detailed match
+            for t in self.signals:
+                signal_, args_, kwargs_ = t
+                if signal_==signal and args_==args and kwargs_==kwargs:
+                    self.testcase.fail("exact signal (%s) was emitted: %s" % (signal, self.signals))
+
+        else:
+            # simple match
+            for t in self.signals:
+                signal_, args_, kwargs_ = t
+                if signal_==signal:
+                    self.testcase.fail("signal (%s) was emitted: %s" % (signal, self.signals))
 
 
 class ThreadsProxy():
