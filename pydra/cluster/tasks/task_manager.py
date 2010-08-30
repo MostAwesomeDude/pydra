@@ -18,6 +18,7 @@
 """
 from __future__ import with_statement
 
+from collections import defaultdict
 from threading import Lock, RLock
 import os
 import shutil
@@ -116,7 +117,8 @@ class TaskManager(Module):
         self.registry = {}
         self.package_dependency = graph.DirectedGraph()
 
-        self._task_callbacks = {} # task_key : callback list
+        # task_key : callback list
+        self._task_callbacks = defaultdict(list)
 
         self._lock = RLock()
         self._callback_lock = Lock()
@@ -323,9 +325,9 @@ class TaskManager(Module):
                 self._add_package(pkg)
 
                 # invoke attached task callbacks
-                callbacks = self._task_callbacks.get(pkg_name, None)
+                callbacks = self._task_callbacks[pkg_name]
                 module_path, cycle = self._compute_module_search_path(pkg_name)
-                while callbacks:
+                while len(callbacks):
                     task_key, errcallback, callback, args, kw = callbacks.pop(0)
                     if cycle:
                         errcallback(task_key, pkg.version,
@@ -462,8 +464,8 @@ class TaskManager(Module):
                 if pkg_status == packaging.STATUS_OUTDATED:
                     # package has already entered a sync process;
                     # append the callback
-                    self._task_callbacks[pkg_name].append( (callback,
-                                callback_args, callback_kwargs) )
+                    self._task_callbacks[pkg_name].append((callback,
+                        callback_args, callback_kwargs))
                 task_class = pkg.tasks.get(task_key, None)
                 if task_class and (version is None or pkg.version == version):
                     module_path, cycle = self._compute_module_search_path(
@@ -486,12 +488,8 @@ class TaskManager(Module):
 
         if needs_update:
             self.emit('TASK_OUTDATED', pkg_name, version)
-            try:
-                self._task_callbacks[pkg_name].append( (task_key, errcallback,
-                            callback, callback_args, callback_kwargs) )
-            except KeyError:
-                self._task_callbacks[pkg_name]= [(task_key, errcallback,
-                        callback, callback_args, callback_kwargs)]
+            self._task_callbacks[pkg_name].append((task_key, errcallback,
+                callback, callback_args, callback_kwargs))
 
 
     def list_task_keys(self):
