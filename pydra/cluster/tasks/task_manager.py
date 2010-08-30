@@ -27,7 +27,6 @@ import time
 from django.core.paginator import Paginator, InvalidPage, EmptyPage
 from django.template import Context, loader
 
-from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
 
 from pydra.config import load_settings
@@ -584,7 +583,7 @@ class TaskManager(Module):
                     break
             else:
                 raise RuntimeError(
-                        'Package %s has unresolved dependency issues: %s' %\
+                        'Package %s has unresolved dependency issues: %s' %
                         (pkg.name, dep))
             self.package_dependency.add_edge(pkg.name, dep)
         self.package_dependency.add_vertex(pkg.name)
