@@ -100,15 +100,32 @@ class CallProxy():
     setting the enabled flag can enable/disable whether the method is actually
     executed when it is called, or just recorded.
     """
-    def __init__(self, func):
+    def __init__(self, func, enabled=True):
         self.func = func
         self.calls = []
-        self.enabled = True
+        self.enabled = enabled
 
     def __call__(self, *args, **kwargs):
         self.calls.append((args, kwargs))
         if self.enabled:
             return self.func(*args, **kwargs)
+
+    def assertCalled(self, testcase, *args, **kwargs):
+        """
+        Assertion function for checking if a callproxy was called
+        """
+        if args or kwargs:
+            #detailed match
+            for t in self.calls:
+                args_, kwargs_ = t
+                if args_==args and kwargs_==kwargs:
+                    return t
+            testcase.fail("exact call (%s) did not occur: %s" % (signal, self.signals))
+            
+        else:
+            # simple match
+            testcase.assert_(self.calls, "%s was not called: %s" % (self.func, self.calls))
+            return self.calls[0]
 
 
 class RemoteProxy():
@@ -116,7 +133,7 @@ class RemoteProxy():
     Proxy of worker (a twisted avatar) used for capturing remote method calls
     during testing.
     """
-    def __init__(self, name):
+    def __init__(self, name='localhost:0'):
         self.remote = self
         self.calls = []
         self.name = name
@@ -126,7 +143,21 @@ class RemoteProxy():
         self.calls.append((args, kwargs, deferred))
         return deferred
     
-    
+    def assertCalled(self, testcase, function, *args, **kwargs):
+        """
+        Assertion function for checking if a remote_proxy had a specific
+        callback called
+        """
+        for call in self.calls:
+            args, kwargs, deferred = call
+            _function = args[0]
+            if _function == function:
+                # for now only check function name.  eventually this should
+                # also check some set of parameters
+                return call
+        testcase.fail('RemoteProxy (%s) did not have %s called' % (self.name, function))
+
+
 class WorkerAvatarProxy(WorkerAvatar):
     """
     Worker avatar proxy that uses a remote proxy instead of a real remote
