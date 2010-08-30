@@ -35,9 +35,13 @@ from pydra.cluster.tasks.task_manager import TaskManager
 from pydra.models import TaskInstance
 from pydra.util import makedirs
 
-class TaskManagerTest(unittest.TestCase):
+from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+
+class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def setUp(self):
+        ModuleTestCaseMixIn.setUp(self)
+
         self.tasks = [
                 'demo.demo_task.TestTask',
                 'demo.demo_task.TestContainerTask',
@@ -51,11 +55,13 @@ class TaskManagerTest(unittest.TestCase):
         # different for each unit test
         pydra_settings.TASKS_DIR = tempfile.mkdtemp()
         pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
-        self.manager = TaskManager(None, lazy_init=True)
+
+        self.task_manager = TaskManager(None, lazy_init=True)
+        self.task_manager._register(self.manager)
 
         # find at least one task package to use for testing
         self.package = 'demo'
-        self.package_dir = '%s/%s' % (self.manager.tasks_dir_internal, self.package)
+        self.package_dir = '%s/%s' % (self.task_manager.tasks_dir_internal, self.package)
 
         self.task_instances = []
         for task in self.tasks [:2]:
@@ -112,7 +118,7 @@ class TaskManagerTest(unittest.TestCase):
         """
         Creates an entry in the task_cache_internal
         """
-        internal_folder = os.path.join(self.manager.tasks_dir_internal,
+        internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
                     self.package, hash)
 
         makedirs(internal_folder)
@@ -148,8 +154,8 @@ class TaskManagerTest(unittest.TestCase):
         Tests list tasks function to verify it returns all the tasks that it should
         """
         self.create_cache_entry()
-        self.manager.init_task_cache()
-        tasks = self.manager.list_tasks()
+        self.task_manager.init_task_cache()
+        tasks = self.task_manager.list_tasks()
         self.assertEqual(len(tasks), 6, "There should be 3 registered tasks")
 
         for task in self.tasks:
@@ -161,40 +167,40 @@ class TaskManagerTest(unittest.TestCase):
 
 
     def test_init_cache_empty_cache(self):
-        self.manager.init_task_cache()
-        self.assertEqual(len(self.manager.registry), 0, 'Cache is empty, but registry is not')
+        self.task_manager.init_task_cache()
+        self.assertEqual(len(self.task_manager.registry), 0, 'Cache is empty, but registry is not')
 
 
     def test_init_cache(self):
         self.create_cache_entry()
-        self.manager.init_task_cache()
-        package = self.manager.registry[(self.package, 'FAKE_HASH')]
+        self.task_manager.init_task_cache()
+        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
 
     def test_init_package(self):
         self.create_cache_entry()
-        self.manager.init_task_cache()
-        length = len(self.manager.registry)
-        package = self.manager.registry[(self.package, 'FAKE_HASH')]
+        self.task_manager.init_task_cache()
+        length = len(self.task_manager.registry)
+        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
     def test_init_package_empty_package(self):
         os.mkdir(self.package_dir)
-        self.assertRaises(TaskNotFoundException, self.manager.init_package, self.package)
-        self.assertEqual(len(self.manager.registry), 0, 'Cache is empty, but registry is not')
+        self.assertRaises(TaskNotFoundException, self.task_manager.init_package, self.package)
+        self.assertEqual(len(self.task_manager.registry), 0, 'Cache is empty, but registry is not')
 
     def test_init_package_multiple_versions(self):
         self.create_cache_entry('FAKE_HASH_1')
         self.create_cache_entry('FAKE_HASH_2')
         self.create_cache_entry('FAKE_HASH_3')
-        self.manager.init_package(self.package)
-        length = len(self.manager.registry)
-        package = self.manager.registry[(self.package, 'FAKE_HASH_3')]
+        self.task_manager.init_package(self.package)
+        length = len(self.task_manager.registry)
+        package = self.task_manager.registry[(self.package, 'FAKE_HASH_3')]
         self.assertNotEqual(package, None, 'Registry does not contain latest package')
         try:
             package = None
-            package = self.manager.registry[(self.package, 'FAKE_HASH_2')]
+            package = self.task_manager.registry[(self.package, 'FAKE_HASH_2')]
         except KeyError:
             pass
         self.assertEqual(package, None, 'Registry contains old package')
@@ -205,15 +211,15 @@ class TaskManagerTest(unittest.TestCase):
     def test_add_package(self):
         self.create_cache_entry()
         package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
-        self.manager._add_package(package)
-        package = self.manager.registry[(self.package, 'FAKE_HASH')]
+        self.task_manager._add_package(package)
+        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
     def test_add_package_with_dependency(self):
         self.create_cache_entry()
         package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
-        self.manager._add_package(package)
-        package = self.manager.registry[(self.package, 'FAKE_HASH')]
+        self.task_manager._add_package(package)
+        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
         self.fail('Not Implemented')
 
@@ -223,10 +229,10 @@ class TaskManagerTest(unittest.TestCase):
 
     def test_retrieve_task(self):
         self.create_cache_entry()
-        self.manager.init_task_cache()
+        self.task_manager.init_task_cache()
         helper = RetrieveHelper()
         task_key = 'demo.demo_task.TestTask'
-        self.manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
+        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
                                    helper.errback)
         self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
         self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
@@ -235,7 +241,7 @@ class TaskManagerTest(unittest.TestCase):
         self.create_cache_entry()
         helper = RetrieveHelper()
         task_key = 'demo.demo_task.TestTask'
-        self.manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
+        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
                                    helper.errback)
         self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
         self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
@@ -244,7 +250,7 @@ class TaskManagerTest(unittest.TestCase):
         self.create_cache_entry()
         helper = RetrieveHelper()
         task_key = 'demo.demo_task.TestTask'
-        self.manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
+        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
                                    helper.errback)
         self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
         self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
@@ -254,7 +260,7 @@ class TaskManagerTest(unittest.TestCase):
         self.create_cache_entry()
         helper = RetrieveHelper()
         task_key = 'demo.demo_task.TestTask'
-        self.manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
+        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
                                    helper.errback)
         self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
         self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
@@ -268,7 +274,7 @@ class RetrieveHelper():
     module_path = None
     args = None
     kwargs = None
-    
+
     def callback(self, task_key, version, task_class, module_path, *args, **kw):
         self.task_key = task_key
         self.version = version
@@ -276,7 +282,7 @@ class RetrieveHelper():
         self.module_path = module_path
         self.args = args
         self.kwargs = kw
-        
+
     def errback(self):
         pass
 
