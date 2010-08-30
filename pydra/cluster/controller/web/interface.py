@@ -22,13 +22,12 @@ import StringIO
 import sys
 import traceback
 
-from pydra.cluster.controller.amf.authenticator import AMFAuthenticator
 import simplejson
 from twisted.application import internet
 from twisted.cred import checkers
 from twisted.internet.defer import Deferred
-from twisted.web import server, resource, http, http_headers
-from twisted.web.error import ForbiddenResource, NoResource, Error
+from twisted.web import server, resource
+from twisted.web.error import NoResource
 
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.module import InterfaceModule
@@ -213,7 +212,6 @@ class TwistedWebInterface(InterfaceModule):
         """
         if not self.sessions.has_key(user):
             # client has not authenticated yet.  Save session
-            authenticator = AMFAuthenticator(self.checker)
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
             self.sessions[user] = {'code':password, 'expire':expiration, \
                                    'auth':False, 'challenge':None}

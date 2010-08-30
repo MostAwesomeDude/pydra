@@ -21,7 +21,6 @@ import datetime
 import sys
 
 
-from authenticator import AMFAuthenticator
 from twisted.application import internet
 from twisted.cred import checkers
 from twisted.internet import reactor
@@ -147,7 +146,6 @@ class AMFInterface(InterfaceModule):
         """
         if not self.sessions.has_key(user):
             # client has not authenticated yet.  Save session
-            authenticator = AMFAuthenticator(self.checker)
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
             self.sessions[user] = {'code':password, 'expire':expiration, 'auth':False, 'challenge':None}
 
@@ -209,7 +207,6 @@ class AMFInterface(InterfaceModule):
         # setup controller connection via AMF gateway
         # Place the namespace mapping into a TwistedGateway:
         from pyamf.remoting.gateway.twisted import TwistedGateway
-        from pyamf.remoting import gateway
         gw = TwistedGateway({ 
                         "controller": self,
                         }, authenticator=self.auth)

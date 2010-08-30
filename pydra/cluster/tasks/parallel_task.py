@@ -20,8 +20,8 @@
 from __future__ import with_statement
 
 import logging
-from threading import Thread, RLock
-from twisted.internet import reactor, threads
+from threading import RLock
+from twisted.internet import reactor
 
 from pydra.cluster.tasks import Task, TaskNotFoundException, STATUS_CANCELLED,\
     STATUS_FAILED,STATUS_STOPPED,STATUS_RUNNING,STATUS_PAUSED,STATUS_COMPLETE
@@ -205,7 +205,6 @@ class ParallelTask(Task):
         self.logger.warning('Paralleltask - Worker failure during workunit')
         with self._lock:
             #remove data from in progress
-            data = self._data_in_progress[index]
             del self._data_in_progress[index]
 
 

@@ -2,7 +2,7 @@
 
 import unittest
 
-from pydra.cluster.tasks.datasource.slicer import IterSlicer, CursorSlicer, CursorDumbSlicer, MapSlicer, LineSlicer
+from pydra.cluster.tasks.datasource.slicer import IterSlicer, CursorSlicer, MapSlicer, LineSlicer
 
 class _CursorDumb(object):
 

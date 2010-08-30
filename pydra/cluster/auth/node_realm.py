@@ -22,8 +22,6 @@ from zope.interface import implements
 from twisted.cred import portal
 from twisted.spread import pb
 
-from pydra.cluster.auth.worker_avatar import WorkerAvatar
-
 # init logging
 import logging
 logger = logging.getLogger('root')

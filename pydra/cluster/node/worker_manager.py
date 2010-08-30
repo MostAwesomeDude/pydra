@@ -28,7 +28,7 @@ from pydra.config import load_settings
 load_settings()
 import pydra_settings
 from pydra.cluster.auth.worker_avatar import WorkerAvatar
-from pydra.cluster.constants import *
+from pydra.cluster.constants import WORKER_STATUS_IDLE
 from pydra.cluster.module import Module
 from pydra.cluster.tasks import STATUS_UNKNOWN
 from pydra.cluster.tasks.task_manager import TaskManager

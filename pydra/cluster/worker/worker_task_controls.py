@@ -20,12 +20,10 @@ from __future__ import with_statement
 from threading import Lock
 
 import simplejson
-from twisted.internet import reactor, threads
-from twisted.internet.defer import Deferred, DeferredList
+from twisted.internet import reactor
 
 from pydra.cluster.constants import *
 from pydra.cluster.module import Module
-from pydra.cluster.tasks import ParallelTask, MapReduceTask
 from pydra.cluster.tasks.task_manager import TaskManager
 from pydra.logs import get_task_logger
 

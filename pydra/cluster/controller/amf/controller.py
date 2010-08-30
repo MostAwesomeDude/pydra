@@ -23,10 +23,11 @@ import httplib
 
 from twisted.python.randbytes import secureRandom
 from pyamf.remoting.client import RemotingService
-from django.utils import simplejson
 
 from pydra.cluster.auth.rsa_auth import load_crypto
-from pydra.cluster.controller import *
+from pydra.cluster.controller import ControllerException, \
+    CONTROLLER_ERROR_DISCONNECTED, CONTROLLER_ERROR_IN_REMOTE_FUNCTION, \
+    CONTROLLER_ERROR_NO_RSA_KEY, CONTROLLER_ERROR_AUTH_FAIL
 
 
 class RemoteMethodProxy():

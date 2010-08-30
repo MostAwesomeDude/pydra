@@ -18,7 +18,9 @@
 """
 from pydra.logs.log_aggregator import NodeLogAggregator
 from pydra.cluster.module import ModuleManager
-from pydra.cluster.node import *
+from pydra.cluster.node import NodeInformation, WorkerManager, \
+    WorkerConnectionManager, MasterConnectionManager, TaskSyncClient, \
+    NodeZeroConfService
 from pydra.cluster.tasks.task_manager import TaskManager
 
 from pydra.config import load_settings

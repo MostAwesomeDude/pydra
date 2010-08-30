@@ -28,8 +28,6 @@ load_settings()
 import pydra_settings
 from pydra.cluster.auth.node_realm import NodeRealm
 from pydra.cluster.auth.rsa_auth import load_crypto
-from pydra.cluster.auth.worker_avatar import WorkerAvatar
-from pydra.cluster.constants import *
 from pydra.cluster.module import Module
 
 

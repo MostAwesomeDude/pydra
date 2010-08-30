@@ -57,7 +57,6 @@ class MasterAvatar(ModuleAvatar, RSAAvatar):
             import os
             import simplejson
             from Crypto.PublicKey import RSA
-            from twisted.conch.ssh.keys import Key
 
             key = simplejson.loads(json_key)
             key = [long(x) for x in key]

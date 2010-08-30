@@ -26,9 +26,6 @@ logger = logging.getLogger('root')
 
 from django.db.models import Q
 
-from pydra.config import load_settings
-load_settings()
-import pydra_settings
 from logger import task_log_path
 from pydra.models import TaskInstance, WorkUnit
 from pydra.cluster.module import Module

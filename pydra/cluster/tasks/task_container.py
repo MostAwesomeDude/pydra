@@ -128,9 +128,6 @@ class TaskContainer(Task):
 
 
     def _work(self, **kwargs):
-        # Starts the task running all subtasks
-        result = kwargs
-
         # start first subtask
         self._current_subtask = 0
         self._start_subtask(args=kwargs)

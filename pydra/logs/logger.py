@@ -22,7 +22,6 @@ from __future__ import with_statement
 import logging
 import logging.handlers
 from logging import FileHandler
-import os
 from threading import Lock
 
 from pydra.config import load_settings
