@@ -17,7 +17,7 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from pydra.tests.proxies import ModuleManagerProxy
+from pydra.tests.proxies import ModuleManagerProxy, RemoteProxy
 
 class ModuleTestCaseMixIn():
     """
@@ -30,19 +30,8 @@ class ModuleTestCaseMixIn():
         self.manager.testcase = self
         self.callbacks = []
     
-    def assertCalled(self, remote_proxy, function, *args, **kwargs):
-        """
-        Assertion function for checking if a remote_proxy had a specific
-        callback called
-        """
-        for call in remote_proxy.calls:
-            args, kwargs, deferred = call
-            _function = args[0]
-            if _function == function:
-                # for now only check function name.  eventually this should
-                # also check some set of parameters
-                return call
-        self.fail('RemoteProxy (%s) did not have %s called' % (remote_proxy.name, function))
+    def assertCalled(self, remote, function, *args, **kwargs):
+        return RemoteProxy.assertCalled(remote, self, function, *args, **kwargs)
     
     def callback(self, results, key='callback', *args, **kwargs):
         """ generic function for use as a callback. records that it was called """

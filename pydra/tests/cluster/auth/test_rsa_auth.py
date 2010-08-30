@@ -19,12 +19,16 @@
 
 import hashlib
 import os
+import simplejson
 import unittest
 
 from Crypto.PublicKey import RSA
 from twisted.python.randbytes import secureRandom
-from django.utils import simplejson
+
+
 from pydra.cluster.auth.rsa_auth import RSAAvatar, RSAClient, generate_keys, load_crypto
+from pydra.tests.proxies import RemoteProxy, CallProxy
+
 
 """
 This file contains tests related to the rsa_auth handshaking used
@@ -175,6 +179,7 @@ class RSA_RSAAvatar_Test(unittest.TestCase):
     """
     def setUp(self):
         pub, priv = generate_keys(KEY_SIZE)
+        self.pub_key_values = pub
         self.pub_key = RSA.construct(pub)
         self.priv_key = RSA.construct(priv)
         self.callback_avatar = None
@@ -211,18 +216,6 @@ class RSA_RSAAvatar_Test(unittest.TestCase):
         result = avatar.perspective_auth_challenge()
         self.assertEquals(result, -1, 'No public key for client, challenge result should be error (-1)')
 
-
-    def test_challenge_no_key_first_use(self):
-        """
-        Tests challenge function when there is no key, but the first_use flag is set.
-        """
-        avatar = RSAAvatar(self.priv_key, None, None, key_size=KEY_SIZE)
-        challenge = avatar.perspective_auth_challenge()
-
-        # challenge should be None, no_key_first_use is a flag to allow keyless access the first
-        # time authenticating, which happens prior to key exchange
-        self.assertFalse(challenge, avatar.challenge)
-
     def test_challenge(self):
         """
         Test a normal challenge where both keys are present
@@ -255,16 +248,6 @@ class RSA_RSAAvatar_Test(unittest.TestCase):
         self.assertEqual(result, -1, 'auth_response should return error (-1) when given bad response')
         self.assertFalse(avatar.authenticated, 'avatar.authenticated flag should be False if auth_response fails')
 
-    def test_response_first_use(self):
-        """
-        Test the response function when first_use_flag is set
-        """
-        avatar = RSAAvatar(self.priv_key, None, None, key_size=KEY_SIZE)
-        challenge = avatar.perspective_auth_challenge()
-        result = avatar.perspective_auth_response(None)
-        self.assertFalse(result, 'auth_response should return None if handshake is successful')
-        self.assert_(avatar.authenticated, 'avatar.authenticated flag should be True if auth_response succeeds')
-
     def test_response_before_challenge(self):
         """
         Test sending a response before a challenge has been created
@@ -272,7 +255,6 @@ class RSA_RSAAvatar_Test(unittest.TestCase):
         avatar = RSAAvatar(self.priv_key, None, None, key_size=KEY_SIZE)
         result = avatar.perspective_auth_response(None)
         self.assertEqual(result, 0, 'auth_response should return error (0) when called before auth_challenge')
-
 
     def test_success_callback(self):
         """
@@ -282,31 +264,33 @@ class RSA_RSAAvatar_Test(unittest.TestCase):
         challenge = avatar.perspective_auth_challenge()
         response = self.create_response(challenge)
         result = avatar.perspective_auth_response(response)
-
+        
         self.assert_(self.callback_avatar, 'Callback was not called after success')
         self.assertEqual(self.callback_avatar, avatar, 'Callback was not called after success')
 
+    def test_get_chunks(self):
+        """
+        Test getting the server's public key values as chunked json.
+        
+        Verify:
+            * chunks deserialize back into key
+        """
+        avatar = RSAAvatar(self.priv_key, self.pub_key_values, self.pub_key, key_size=KEY_SIZE)
+        chunks = list(avatar.chunks())
+        deserialized = simplejson.loads(''.join(chunks))
+        self.assert_(self.pub_key_values==deserialized, "deserialized key doesn't match")
 
-
-
-from twisted.internet import defer
-class RemoteProxy():
-    """
-    Class that pretends to be a remote reference.  Used for testing components
-    without having to actually start the reactor and make connections.
-    """
-    def __init__(self):
-        self.func = None
-        self.args = None
-        self.kwargs = None
-
-    def callRemote(self, func, *args, **kwargs):
-        self.func = func
-        self.args = args
-        self.kwargs = kwargs
-
-        deferred = defer.Deferred()
-        return deferred
+    def test_get_key(self):
+        """
+        Test getting the server's public key values as chunked json.
+        
+        Verify:
+            * chunks deserialize back into key
+        """
+        avatar = RSAAvatar(self.priv_key, self.pub_key_values, self.pub_key, key_size=KEY_SIZE)
+        chunks = avatar.perspective_get_key()
+        deserialized = simplejson.loads(''.join(chunks))
+        self.assert_(self.pub_key_values==deserialized, "deserialized key doesn't match")
 
 
 class RSAClient_Test(unittest.TestCase):
@@ -315,72 +299,112 @@ class RSAClient_Test(unittest.TestCase):
     """
     def setUp(self):
         pub, priv = generate_keys(KEY_SIZE)
+        self.pub_key_values = pub
         self.pub_key = RSA.construct(pub)
         self.priv_key = RSA.construct(priv)
 
     def test_auth(self):
         """
         Tests the auth function
+        
+        Verifies:
+            * auth_challenge is sent
         """
         client = RSAClient(self.priv_key)
         remote = RemoteProxy()
         client.auth(remote, server_key=self.pub_key)
+        remote.assertCalled(self, 'auth_challenge')
 
-        self.assertEqual(remote.func, 'auth_challenge', 'Calling auth should trigger auth_challenge call on server')
-
+    def test_key_exchange(self):
+        """
+        Tests the auth function before the client has paired.  This triggers
+        key exchanging.
+        
+        Verifies:
+            * remote command "exchange_keys" is sent
+            * Avatar response is received and decoded
+            * response triggers client save_key to be called
+            * server key is received
+            * response triggers server save_key to be called
+            * client key is received
+        """
+        client = RSAClient(self.priv_key, self.pub_key_values)
+        remote = RemoteProxy()
+        save_key_server = CallProxy(None, False)
+        save_key_client = CallProxy(None, False)
+        client.auth(remote, save_key=save_key_client)
+        args, kwargs, deferred = remote.assertCalled(self, 'exchange_keys')
+        
+        avatar = RSAAvatar(self.priv_key, self.pub_key_values, self.pub_key, save_key=save_key_server, key_size=KEY_SIZE)
+        deferred.callback(avatar.perspective_exchange_keys(*args[1:]))
+        
+        args, kwargs = save_key_server.assertCalled(self)
+        key = simplejson.loads(''.join(args[0]))
+        self.assert_(key==self.pub_key_values, 'keys do not match')
+        
+        args, kwargs = save_key_client.assertCalled(self)
+        key = simplejson.loads(''.join(args[0]))
+        self.assert_(key==self.pub_key_values, 'keys do not match')
 
     def test_auth_challenge(self):
         """
         Tests a normal challenge string
+        
+        Verifies:
+            * remote call is sent
+            * response equals challenge
         """
         client = RSAClient(self.priv_key)
         avatar = RSAAvatar(self.priv_key, None, self.pub_key, key_size=KEY_SIZE)
         remote = RemoteProxy()
-
+        
         challenge = avatar.perspective_auth_challenge()
         client.auth_challenge(challenge, remote, self.pub_key)
-
+        
         #verify that auth_response got called
-        self.assertEqual(remote.func, 'auth_response', 'Calling auth_challenge should trigger auth_response call on server')
-
-        #verify the correct response was sent
-        self.assertEqual(remote.kwargs['response'], avatar.challenge, 'Response did not match the expected response')
-
+        args, kwargs, deferred = remote.assertCalled(self, 'auth_response')
+        self.assertEqual(kwargs['response'], avatar.challenge, 'Response did not match the expected response')
 
     def test_auth_challenge_no_server_key(self):
         """
         Tests auth_challenge when server key is None.
+        
+        Verifies:
+            * remote call is sent
+            * auth is denied
         """
         client = RSAClient(self.priv_key)
         avatar = RSAAvatar(self.priv_key, None, self.pub_key, key_size=KEY_SIZE)
         remote = RemoteProxy()
-
+        
         challenge = avatar.perspective_auth_challenge()
         client.auth_challenge(challenge, remote, None)
-
+        
         #verify that auth_response got called
-        self.assertEqual(remote.func, 'auth_response', 'Calling auth_challenge should trigger auth_response call on server')
-
+        args, kwargs, deferred = remote.assertCalled(self, 'auth_response')
+        
         #verify the correct response was sent
-        self.assertFalse(remote.kwargs['response'], 'Response did not match the expected response')
-
+        self.assertFalse(kwargs['response'], 'Response did not match the expected response')
 
     def test_auth_challenge_no_challenge(self):
         """
         Tests auth_challenge when the challenge received is None
+        
+        Verifies:
+            * remote call is sent
+            * auth is denied
         """
         client = RSAClient(self.priv_key)
         remote = RemoteProxy()
-
+        
         challenge = None
         client.auth_challenge(challenge, remote, self.pub_key)
-
+        
         #verify that auth_response got called
-        self.assertEqual(remote.func, 'auth_response', 'Calling auth_challenge should trigger auth_response call on server')
-
+        args, kwargs, deferred = remote.assertCalled(self, 'auth_response')
+        
         #verify the correct response was sent
-        self.assertFalse(remote.kwargs['response'], 'Response did not match the expected response')
-
+        self.assertFalse(kwargs['response'], 'Response did not match the expected response')
 
     def auth_result_success(self):
         """
