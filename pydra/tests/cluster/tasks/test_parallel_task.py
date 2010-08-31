@@ -23,8 +23,29 @@ from threading import Event
 from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
 
+from pydra.cluster.tasks import TaskNotFoundException
 from pydra.cluster.tasks.parallel_task import ParallelTask
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
+
+from pydra.tests.cluster.tasks.proxies import WorkerProxy
+from pydra.tests.cluster.tasks.test_tasks import StandaloneTask
+
+
+class TestParallelTask(ParallelTask):
+    """
+    Example class for running tests in parallel
+    """
+    datasource = IterSlicer, range(10)
+    description = 'A demo task illustrating a Parallel task.  This task runs 5 TestTasks at the same time'
+
+    def __init__(self):
+        ParallelTask.__init__(self)
+        self.set_subtask(StandaloneTask, 'subtask')
+        self._finished = []
+
+    def work_unit_complete(self, data, results):
+        self._finished.append(results)
+    
 
 class ParallelTaskStandaloneTest(unittest.TestCase):
     """
@@ -33,9 +54,7 @@ class ParallelTaskStandaloneTest(unittest.TestCase):
     """
 
     def setUp(self):
-        class pt(ParallelTask):
-            datasource = IterSlicer, range(10)
-        self.pt = pt()
+        self.pt = TestParallelTask()
 
     def test_trivial(self):
         pass
@@ -48,6 +67,7 @@ class ParallelTaskStandaloneTest(unittest.TestCase):
             self.assertEqual(data, i)
         self.assertEqual(s, set(self.pt._data_in_progress.keys()))
 
+
 class ParallelTask_Test(unittest.TestCase):
     """
     Tests for verify functionality of ParllelTask class
@@ -58,7 +78,6 @@ class ParallelTask_Test(unittest.TestCase):
         self.worker = WorkerProxy()
         self.parallel_task.parent = self.worker
 
-
     def test_key_generation_paralleltask(self):
         """
         Verifies that the task key used to look up the task is generated correctly
@@ -67,15 +86,13 @@ class ParallelTask_Test(unittest.TestCase):
         key = self.parallel_task.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
 
-
     def test_key_generation_paralleltask_child(self):
         """
         Verifies that the task key used to look up the task is generated correctly
         """
-        expected = 'TestParallelTask.TestTask'
+        expected = 'TestParallelTask.StandaloneTask'
         key = self.parallel_task.subtask.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
-
 
     def test_get_subtask_paralleltask(self):
         """
@@ -88,7 +105,7 @@ class ParallelTask_Test(unittest.TestCase):
         expected = self.parallel_task
         returned = self.parallel_task.get_subtask(key.split('.'))
         self.assertEqual(returned, expected, 'Subtask retrieved was not the expected Task')
-
+        
         # incorrect Key
         key = 'FakeTaskThatDoesNotExist'
         self.assertRaises(TaskNotFoundException, self.parallel_task.get_subtask, key.split('.'))
@@ -101,15 +118,14 @@ class ParallelTask_Test(unittest.TestCase):
              * that the task key returns an error if given an incorrect key
         """
         # correct key
-        key = 'TestParallelTask.TestTask'
+        key = 'TestParallelTask.StandaloneTask'
         expected = self.parallel_task.subtask
         returned = self.parallel_task.get_subtask(key.split('.'))
         self.assertEqual(returned, expected, 'Subtask retrieved was not the expected Task')
-
+        
         # incorrect Key
         key = 'TestParallelTask.FakeTaskThatDoesNotExist'
         self.assertRaises(TaskNotFoundException, self.parallel_task.get_subtask, key.split('.'))
-
 
     def test_get_worker_paralleltask(self):
         """
@@ -118,7 +134,6 @@ class ParallelTask_Test(unittest.TestCase):
         returned = self.parallel_task.get_worker()
         self.assert_(returned, 'no worker was returned')
         self.assertEqual(returned, self.worker, 'worker retrieved was not the expected worker')
-
 
     def test_get_worker_paralleltask_child(self):
         """
