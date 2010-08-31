@@ -26,7 +26,10 @@ from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
 from pydra.cluster.tasks.tasks import Task
 from pydra.cluster.tasks.parallel_task import ParallelTask
 
+from pydra.tests import setup_test_environment
+setup_test_environment()
 from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask, WorkerProxy
+
 
 class Task_TwistedTest(twisted_unittest.TestCase):
     """
@@ -42,30 +45,28 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         #reactor.stop()
         pass
 
-
     def verify_status(self, task, parent,  subtask_key=None):
         try:
             parent.start(subtask_key=subtask_key)
-
+            
             # wait for event indicating task has started
             task.starting_event.wait(5)
             self.assertEqual(task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
-
+            
             task._stop()
-
+            
             # don't release running lock till this point.  otherwise
             # the task will just loop indefinitely and may starve
             # other threads that need to execute
             task.running_event.set()
-
+            
             #wait for the task to finish
             task.finished_event.wait(5)
             self.assertEqual(task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
-
+        
         except Exception, e:
-            print 'Exception while testing: %s' % e
-
-
+            raise
+        
         finally:
             #release events just in case
             task._stop()
@@ -81,10 +82,9 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         """
         task = StartupAndWaitTask()
         task.parent = WorkerProxy()
-
+        
         # defer rest of test because this will cause the reactor to start
         return threads.deferToThread(self.verify_status, task=task, parent=task)
-
 
     def test_start_subtask(self):
         """
@@ -97,23 +97,19 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         task = ParallelTask()
         task.subtask = StartupAndWaitTask()
         task.parent = WorkerProxy()
-
+        
         # defer rest of test because this will cause the reactor to start
         return threads.deferToThread(self.verify_status, task=task.subtask, parent=task, subtask_key='ParallelTask.StartupAndWaitTask')
+
 
 class Task_Internal_Test(unittest.TestCase):
     """
     Tests for verify functionality of Task class
     """
     def setUp(self):
-        self.task = TestTask()
-        self.container_task = TestContainerTask()
-        self.parallel_task = TestParallelTask()
-
+        self.task = StandaloneTask()
         self.worker = WorkerProxy()
         self.task.parent = self.worker
-        self.container_task.parent = self.worker
-        self.parallel_task.parent = self.worker
 
     def tearDown(self):
         pass
@@ -122,10 +118,9 @@ class Task_Internal_Test(unittest.TestCase):
         """
         Verifies that the task key used to look up the task is generated correctly
         """
-        expected = 'TestTask'
+        expected = 'StandaloneTask'
         key = self.task.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
-
 
     def test_get_subtask_task(self):
         """
@@ -134,15 +129,14 @@ class Task_Internal_Test(unittest.TestCase):
              * that the task key returns an error if given an incorrect key
         """
         # correct key
-        key = 'TestTask'
+        key = 'StandaloneTask'
         expected = self.task
         returned = self.task.get_subtask(key.split('.'))
         self.assertEqual(returned, expected, 'Subtask retrieved was not the expected Task')
-
+        
         # incorrect Key
         key = 'FakeTaskThatDoesNotExist'
         self.assertRaises(TaskNotFoundException, self.task.get_subtask, key.split('.'))
-
 
     def test_get_worker_task(self):
         """
@@ -152,13 +146,14 @@ class Task_Internal_Test(unittest.TestCase):
         self.assert_(returned, 'no worker was returned')
         self.assertEqual(returned, self.worker, 'worker retrieved was not the expected worker')
 
+
 class StandaloneTask(Task):
     def work(self, **kwargs):
         """
         Simple work method that always returns a testable sentinel.
         """
-
         return range(5)
+
 
 class TaskStandaloneTest(unittest.TestCase):
     """

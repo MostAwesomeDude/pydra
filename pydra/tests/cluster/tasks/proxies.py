@@ -61,34 +61,34 @@ class StartupAndWaitTask(Task):
         self.running_event.set()
         self.finished_event.set()
 
-
-    def work(self, args={}, callback=None, callback_args={}):
+    def _work(self, **kwargs):
         """
         extended to add locks at the end of the work
         """
         try:
             # set a failsafe to ensure events get cleared
             self.failsafe = reactor.callLater(5, self.clear_events)
-
-            ret = Task.work(self, args, callback, callback_args)
+            
+            ret = super(StartupAndWaitTask, self)._work(**kwargs)
             self.finished_event.set()
-
+        
         finally:
             if self.failsafe:
                 self.failsafe.cancel()
-
+        
         return ret
 
-    def _work(self, data=None):
+    def work(self, data=None):
         """
-        'Work' until an external object modifies the STOP_FLAG flag
+        simple "user defined" work method.  just simulates work being done,
+        until an external object modifies the STOP_FLAG flag
         """
         self.data = data
         self.starting_event.set()
-
+        
         while not self.STOP_FLAG:
             # wait for the running_event.  This  prevents needless looping
             # and still simulates a task that is working
             self.running_event.wait(5)
-
+        
         return self.data
