@@ -23,27 +23,31 @@ from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
 
 from pydra.cluster.tasks import STATUS_CANCELLED, STATUS_FAILED, \
-    STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, STATUS_COMPLETE
+    STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, STATUS_COMPLETE, \
+    TaskNotFoundException
 from pydra.cluster.tasks.task_container import TaskContainer
-from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask
+from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask, \
+    StatusSimulatingTaskProxy, WorkerProxy
+from pydra.tests.cluster.tasks.test_tasks import StandaloneTask
 
 
-class StatusSimulatingTaskProxy():
+class TestContainerTask(TaskContainer):
     """
-    Task Proxy for simulating status
+    Top level task for the testing TaskContainer
+    
+    Extends TaskContainer only so that it can encapsulate the creation of its children
     """
-    value = 0
-    _status = None
+    description = """A demo task that illustrates a ContainerTask.  This task
+    runs 3 StandaloneTasks sequentially"""
 
-    def __init__(self):
-        self._status = STATUS_STOPPED
-
-    def status(self):
-        return self._status
-
-    def progress(self):
-        return self.value
-
+    def __init__(self, msg=None):
+        TaskContainer.__init__(self, msg)
+        
+        # add some children
+        self.add_task(StandaloneTask('child 1'))
+        self.add_task(StandaloneTask('child 2'))
+        self.add_task(StandaloneTask('child 3'))
+    
 
 class TaskContainer_Test(twisted_unittest.TestCase):
     """
@@ -59,25 +63,24 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.assertEqual(ctask.progress(), 0, 'Both task progresses are zero, container progress should be zero')
-
+        
         task1.value = 50
         self.assertEqual(ctask.progress(), 25, 'Values are [50,0] with auto weighting, container progress should be 25%')
-
+        
         task1.value = 100
         self.assertEqual(ctask.progress(), 50, 'Values are [100,0] with auto weighting, container progress should be 50%')
-
+        
         task2.value = 50
         self.assertEqual(ctask.progress(), 75, 'Values are [100,50] with auto weighting, container progress should be 75%')
-
+        
         task2.value = 100
         self.assertEqual(ctask.progress(), 100, 'Values are [100,100] with auto weighting, container progress should be 100%')
-
 
     def test_progress_with_one_weighted(self):
         """
@@ -85,25 +88,24 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1, 80)
         ctask.add_task(task2)
-
+        
         self.assertEqual(ctask.progress(), 0, 'Both task progresses are zero, container progress should be zero')
-
+        
         task1.value = 50
         self.assertEqual(ctask.progress(), 40, 'Values are [50,0] with manual weighting 80% on task 1, container progress should be 40%')
-
+        
         task1.value = 100
         self.assertEqual(ctask.progress(), 80, 'Values are [100,0] with manual weighting 80% on task 1, container progress should be 80%')
-
+        
         task2.value = 50
         self.assertEqual(ctask.progress(), 90, 'Values are [100,50] with manual weighting 80% on task 1, container progress should be 90%')
-
+        
         task2.value = 100
         self.assertEqual(ctask.progress(), 100, 'Values are [100,100] with manual weighting 80% on task 1, container progress should be 100%')
-
 
     def test_progress_with_one_weighted_multiple_auto(self):
         """
@@ -113,32 +115,31 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
         task3 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1, 80)
         ctask.add_task(task2)   #should default to 10% of the overall progress
         ctask.add_task(task3)   #should default to 10% of the overall progress
-
+        
         self.assertEqual(ctask.progress(), 0, 'Both task progresses are zero, container progress should be zero')
-
+        
         task1.value = 50
         self.assertEqual(ctask.progress(), 40, 'Values are [50,0,0] with manual weighting 80% on task 1, container progress should be 40%')
-
+        
         task1.value = 100
         self.assertEqual(ctask.progress(), 80, 'Values are [100,0,0] with manual weighting 80% on task 1, container progress should be 80%')
-
+        
         task2.value = 50
         self.assertEqual(ctask.progress(), 85, 'Values are [100,50,0] with manual weighting 80% on task 1, container progress should be 85%')
-
+        
         task2.value = 100
         self.assertEqual(ctask.progress(), 90, 'Values are [100,100,0] with manual weighting 80% on task 1, container progress should be 90%')
-
+        
         task3.value = 50
         self.assertEqual(ctask.progress(), 95, 'Values are [100,100,50] with manual weighting 80% on task 1, container progress should be 95%')
-
+        
         task3.value = 100
         self.assertEqual(ctask.progress(), 100, 'Values are [100,100,100] with manual weighting 80% on task 1, container progress should be 100%')
-
 
     def test_progress_when_status_is_completed(self):
         """
@@ -147,14 +148,14 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         task1._status = STATUS_COMPLETE
         task2._status = STATUS_COMPLETE
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.assertEqual(ctask.progress(), 100, 'Container task should report 100 because status is STATUS_COMPLETE')
 
     def verify_status(self, status1, status2, expected, task):
@@ -230,11 +231,11 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.verify_status(STATUS_COMPLETE, STATUS_COMPLETE, STATUS_COMPLETE, ctask)
 
 
@@ -244,20 +245,19 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.verify_status(STATUS_PAUSED, STATUS_STOPPED, STATUS_PAUSED, ctask)
         self.verify_status(STATUS_STOPPED, STATUS_PAUSED, STATUS_PAUSED, ctask)
-
+        
         self.verify_status(STATUS_COMPLETE, STATUS_PAUSED, STATUS_PAUSED, ctask)
         self.verify_status(STATUS_PAUSED, STATUS_COMPLETE, STATUS_PAUSED, ctask)
-
+        
         self.verify_status(STATUS_PAUSED, STATUS_RUNNING, STATUS_RUNNING, ctask)
         self.verify_status(STATUS_RUNNING, STATUS_PAUSED, STATUS_RUNNING, ctask)
-
 
     def verify_sequential_work(self, task):
         """
@@ -267,46 +267,45 @@ class TaskContainer_Test(twisted_unittest.TestCase):
             #start task it should pause in the first subtask
             args = {'data':'THIS_IS_SOME_FAKE_DATA'}
             task.start(args=args)
-
+            
             for subtask in task.subtasks:
                 # wait for event indicating subtask has started
                 subtask.task.starting_event.wait(5)
                 self.assertEqual(task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
                 self.assertEqual(subtask.task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
-                self.assertEqual(subtask.task.data, args, 'task did not receive data')
+                self.assertEqual(subtask.task.data, args['data'], 'task did not receive data')
                 subtask.task._stop()
-
+            
                 # don't release running lock till this point.  otherwise
                 # the subtask will just loop indefinitely and may starve
                 # other threads that need to execute
                 subtask.task.running_event.set()
-
+            
                 #wait for the subtask to finish
                 subtask.task.finished_event.wait(5)
                 self.assertEqual(subtask.task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
-
+            
             #test that container is marked as finished
             self.assertEqual(task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
-
+        
         except Exception, e:
-            print 'Exception while testing: %s' % e
-
+            raise
+        
         finally:
             #release events just in case
             for subtask in task.subtasks:
                 subtask.task._stop()
                 subtask.task.clear_events()
 
-
     def test_sequential_work(self):
         """
         Tests for verifying TaskContainer iterates through subtasks correctly 
         when run in sequential mode
         """
-
+        
         task1 = StartupAndWaitTask()
         task2 = StartupAndWaitTask()
-
+        
         ctask = TaskContainer('tester')
         ctask.parent = WorkerProxy()
         ctask.add_task(task1)
@@ -326,7 +325,6 @@ class TaskContainer2_Test(unittest.TestCase):
     def tearDown(self):
         pass
 
-
     def test_key_generation_containertask(self):
         """
         Verifies that the task key used to look up the task is generated correctly
@@ -335,16 +333,14 @@ class TaskContainer2_Test(unittest.TestCase):
         key = self.container_task.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
 
-
     def test_key_generation_containertask_child(self):
         """
         Verifies that the task key used to look up the task is generated correctly
         """
         for i in range(len(self.container_task.subtasks)):
-            expected = 'TestContainerTask.%i.TestTask' % i
+            expected = 'TestContainerTask.%i.StandaloneTask' % i
             key = self.container_task.subtasks[i].task.get_key()
             self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
-
 
     def test_get_subtask_containertask(self):
         """
@@ -357,11 +353,10 @@ class TaskContainer2_Test(unittest.TestCase):
         expected = self.container_task
         returned = self.container_task.get_subtask(key.split('.'))
         self.assertEqual(returned, expected, 'Subtask retrieved was not the expected Task')
-
+        
         # incorrect Key
         key = 'FakeTaskThatDoesNotExist'
         self.assertRaises(TaskNotFoundException, self.container_task.get_subtask, key.split('.'))
-
 
     def test_get_subtask_containertask_child(self):
         """
@@ -371,21 +366,20 @@ class TaskContainer2_Test(unittest.TestCase):
         """
         # correct key
         for i in range(len(self.container_task.subtasks)):
-            key = 'TestContainerTask.%i.TestTask' % i
+            key = 'TestContainerTask.%i.StandaloneTask' % i
             expected = self.container_task.subtasks[i].task
             returned = self.container_task.get_subtask(key.split('.'))
             self.assertEqual(returned, expected, 'Subtask retrieved was not the expected Task')
-
+        
         # incorrect Key
-        key = 'TestContainerTask.10.TestTask'
+        key = 'TestContainerTask.10.StandaloneTask'
         self.assertRaises(TaskNotFoundException, self.container_task.get_subtask, key.split('.'))
         key = 'TestContainerTask.10'
         self.assertRaises(TaskNotFoundException, self.container_task.get_subtask, key.split('.'))
-
+        
         # Invalid Key (must be integer)
         key = 'TestContainerTask.FakeTaskThatIsntAnInteger'
         self.assertRaises(TaskNotFoundException, self.container_task.get_subtask, key.split('.'))
-
 
     def test_get_worker_containertask(self):
         """
@@ -394,7 +388,6 @@ class TaskContainer2_Test(unittest.TestCase):
         returned = self.container_task.get_worker()
         self.assert_(returned, 'no worker was returned')
         self.assertEqual(returned, self.worker, 'worker retrieved was not the expected worker')
-
 
     def test_get_worker_containertask_child(self):
         """

@@ -20,6 +20,7 @@
 from threading import Event
 from twisted.internet import reactor
 from pydra.cluster.tasks.tasks import Task
+from pydra.cluster.tasks import STATUS_STOPPED
 
 
 class WorkerProxy():
@@ -92,3 +93,20 @@ class StartupAndWaitTask(Task):
             self.running_event.wait(5)
         
         return self.data
+
+
+class StatusSimulatingTaskProxy():
+    """
+    Task Proxy for simulating status
+    """
+    value = 0
+    _status = None
+
+    def __init__(self):
+        self._status = STATUS_STOPPED
+
+    def status(self):
+        return self._status
+
+    def progress(self):
+        return self.value
