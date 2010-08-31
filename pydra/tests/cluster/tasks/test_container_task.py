@@ -164,7 +164,7 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task.subtasks[0].task._status = status1
         task.subtasks[1].task._status = status2
-
+        
         self.assertEqual(task.status(), expected, 'statuses were [%s, %s] expected status:%s   actual status:%s' % (status1, status2, expected, task.status()))
 
     def test_status_not_started(self):
@@ -173,13 +173,12 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.verify_status(STATUS_STOPPED, STATUS_STOPPED, STATUS_STOPPED, ctask)
-
 
     def test_status_any_subtask_running(self):
         """
@@ -187,20 +186,19 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.verify_status(STATUS_RUNNING, STATUS_STOPPED, STATUS_RUNNING, ctask)
         self.verify_status(STATUS_STOPPED, STATUS_RUNNING, STATUS_RUNNING, ctask)
-
+        
         self.verify_status(STATUS_COMPLETE, STATUS_RUNNING, STATUS_RUNNING, ctask)
         self.verify_status(STATUS_RUNNING, STATUS_COMPLETE, STATUS_RUNNING, ctask)
-
+        
         self.verify_status(STATUS_PAUSED, STATUS_RUNNING, STATUS_RUNNING, ctask)
         self.verify_status(STATUS_RUNNING, STATUS_PAUSED, STATUS_RUNNING, ctask)
-
 
     def test_status_subtask_failed(self):
         """
@@ -208,20 +206,20 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         """
         task1 = StatusSimulatingTaskProxy()
         task2 = StatusSimulatingTaskProxy()
-
+        
         ctask = TaskContainer('tester')
         ctask.add_task(task1)
         ctask.add_task(task2)
-
+        
         self.verify_status(STATUS_FAILED, STATUS_STOPPED, STATUS_FAILED, ctask)
         self.verify_status(STATUS_STOPPED, STATUS_FAILED, STATUS_FAILED, ctask)
-
+        
         self.verify_status(STATUS_COMPLETE, STATUS_FAILED, STATUS_FAILED, ctask)
         self.verify_status(STATUS_FAILED, STATUS_COMPLETE, STATUS_FAILED, ctask)
-
+        
         self.verify_status(STATUS_PAUSED, STATUS_FAILED, STATUS_FAILED, ctask)
         self.verify_status(STATUS_FAILED, STATUS_PAUSED, STATUS_FAILED, ctask)
-
+        
         self.verify_status(STATUS_RUNNING, STATUS_FAILED, STATUS_RUNNING, ctask)
         self.verify_status(STATUS_FAILED, STATUS_RUNNING, STATUS_RUNNING, ctask)
 
@@ -237,7 +235,6 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         ctask.add_task(task2)
         
         self.verify_status(STATUS_COMPLETE, STATUS_COMPLETE, STATUS_COMPLETE, ctask)
-
 
     def test_status_any_subtask_paused(self):
         """
@@ -272,15 +269,17 @@ class TaskContainer_Test(twisted_unittest.TestCase):
                 # wait for event indicating subtask has started
                 subtask.task.starting_event.wait(5)
                 self.assertEqual(task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
-                self.assertEqual(subtask.task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
+                self.assertEqual(subtask.task.status(), STATUS_RUNNING, 'Subtask started but status is not STATUS_RUNNING')
                 self.assertEqual(subtask.task.data, args['data'], 'task did not receive data')
+                
+                # tell subtask to stop
                 subtask.task._stop()
-            
+                
                 # don't release running lock till this point.  otherwise
                 # the subtask will just loop indefinitely and may starve
                 # other threads that need to execute
                 subtask.task.running_event.set()
-            
+                
                 #wait for the subtask to finish
                 subtask.task.finished_event.wait(5)
                 self.assertEqual(subtask.task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
@@ -302,7 +301,6 @@ class TaskContainer_Test(twisted_unittest.TestCase):
         Tests for verifying TaskContainer iterates through subtasks correctly 
         when run in sequential mode
         """
-        
         task1 = StartupAndWaitTask()
         task2 = StartupAndWaitTask()
         

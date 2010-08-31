@@ -92,7 +92,7 @@ class StartupAndWaitTask(Task):
             # and still simulates a task that is working
             self.running_event.wait(5)
         
-        return self.data
+        return {'data':self.data}
 
 
 class StatusSimulatingTaskProxy():

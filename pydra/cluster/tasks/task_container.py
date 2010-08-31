@@ -29,9 +29,9 @@ class SubTaskWrapper():
     """
     SubTaskWrapper - class used to store additional information
     about the relationship between a container and a subtask.
-
+    
     This class acts as a proxy for all Task methods
-
+    
         percentage - the percentage of work the task accounts for.
     """
     def __init__(self, task, parent, percentage):
@@ -48,7 +48,7 @@ class SubTaskWrapper():
         """
         index = self.parent.subtasks.index(self)
         base = self.parent.get_key()
-
+        
         return '%s.%s' % (base, index)
 
     def get_worker(self):
@@ -58,19 +58,14 @@ class SubTaskWrapper():
         """
         return self.parent.get_worker()
 
-
     def request_worker(self, *args, **kwargs):
         return self.parent.request_worker(*args, **kwargs)
-
 
     def _stop(self, *args, **kwargs):
         return self.task._stop(*args, **kwargs)
 
-
     def __repr__(self):
         return self.task.__repr__()
-
-
 
 
 class TaskContainer(Task):
@@ -107,7 +102,7 @@ class TaskContainer(Task):
         another entry for the class itself. indexes because there may be more
         than one of the same class.  Task.get_subtask(...) will break if the
         first element in the task_path is an integer.
-
+        
         If the task_path indicates the child of a ContainerTask the index will
         also be popped off in this function and the subsequent call with go
         directly to the subtask rather than through the wrapper
@@ -117,7 +112,7 @@ class TaskContainer(Task):
                 return task_path, self
             else:
                 raise TaskNotFoundException("Task not found")
-
+        
         try:
             # get index and recurse into subtask
             index = int(task_path[1])
@@ -126,12 +121,10 @@ class TaskContainer(Task):
         except (ValueError, IndexError):
             raise TaskNotFoundException("Task not found")
 
-
     def _work(self, **kwargs):
         # start first subtask
         self._current_subtask = 0
         self._start_subtask(args=kwargs)
-
 
     def _start_subtask(self, args={}):
         """
@@ -143,19 +136,17 @@ class TaskContainer(Task):
         subtask.task.start(args=args, callback=self._subtask_complete)
         logger.debug('TaskContainer - STARTED! subtask: %s' % subtask)
 
-
     def _subtask_complete(self, results):
         """
         Callback when a subtask is complete.  Will either move on
         to the next subtask or call the callback
         """
+        
         self._current_subtask += 1
         if self._current_subtask < len (self.subtasks):
             self._start_subtask(args=results)
-
         else:
             self._complete(results)
-
 
     def _stop(self):
         """
@@ -165,12 +156,10 @@ class TaskContainer(Task):
         for subtask in self.subtasks:
             subtask._stop()
 
-
-
     def progress(self):
         """
         progress - returns the progress as a number 0-100.
-
+        
         A container task's progress is a derivitive of its children.
         the progress of the child counts for a certain percentage of the
         progress of the parent.  This weighting can be set manually or
@@ -184,23 +173,22 @@ class TaskContainer(Task):
                 auto_total -= subtask.percentage
                 auto_subtask_count -= 1
         auto_percentage = auto_total / auto_subtask_count / float(100)
-
+        
         for subtask in self.subtasks:
             if subtask.percentage:
                 percentage = subtask.percentage/float(100)
             else:
                 percentage = auto_percentage
-
+            
             # if task is done it complete 100% of its work
             if subtask.task._status == STATUS_COMPLETE:
                 progress += 100*percentage
-
+            
             # task is only partially complete
             else:
                 progress += subtask.task.progress()*percentage
-
+        
         return progress
-
 
     def progressMessage(self):
         """ 
@@ -209,15 +197,14 @@ class TaskContainer(Task):
         for subtask in self.subtasks:
             if subtask.task._status == STATUS_RUNNING:
                 return subtask.task.progressMessage()
-
+        
         return None
-
 
     def status(self):
         """
         getStatus - returns status of this task.  A container task's status is 
         a derivitive of its children.
-
+        
         failed - if any children failed, then the task failed
         running - if any children are running then the task is running
         paused - paused if no other children are running
@@ -227,7 +214,7 @@ class TaskContainer(Task):
         has_paused = False
         has_unfinished = False
         has_failed = False
-
+        
         for subtask in self.subtasks:
             status = subtask.task.status()
             if status == STATUS_RUNNING:
@@ -236,30 +223,29 @@ class TaskContainer(Task):
                 # because we want to indicate that the task is still doing something
                 # even though it should be stopped
                 return STATUS_RUNNING
-
+            
             elif status == STATUS_FAILED:
                 # mark has_failed flag.  this can still be overridden by a running task
                 has_failed = True
                 has_unfinished = True
-
+            
             elif status == STATUS_PAUSED:
                 # mark has_paused flag, can be overriden by failed or running tasks
                 has_paused = True;
                 has_unfinished = True
-
+            
             elif status == STATUS_STOPPED:
                 #still need to mark this status to indicate we arent complete
                 has_unfinished = True
-
+        
         if has_failed:
             return STATUS_FAILED
-
+        
         if has_paused:
             return STATUS_PAUSED
-
+        
         if not has_unfinished:
             return STATUS_COMPLETE
-
+        
         # its not any other status, it must be stopped
         return STATUS_STOPPED
-
