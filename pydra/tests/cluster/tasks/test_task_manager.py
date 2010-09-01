@@ -48,30 +48,33 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
     def setUp(self):
         ModuleTestCaseMixIn.setUp(self)
 
-        self.tasks = [
-                'test.test.TestTask',
-                ]
-        self.completion = {}
-        for task in self.tasks:
-            self.completion[task] = None
-
         # Munge both task directories to be under our control and also
         # different for each unit test.
         pydra_settings.TASKS_DIR = tempfile.mkdtemp()
         pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
 
+        # Lazy-inited, with no autodiscovery.
         self.task_manager = TaskManager(None, lazy_init=True)
         self.task_manager._register(self.manager)
 
         # Make a test package.
         self.package = 'test'
+        module = "testmodule"
         self.package_dir = os.path.join(
             self.task_manager.tasks_dir, self.package)
         self.package_dir_internal = os.path.join(
             self.task_manager.tasks_dir_internal, self.package)
         makedirs(self.package_dir)
-        with open(os.path.join(self.package_dir, "testmodule.py"), "w") as f:
+        with open(os.path.join(self.package_dir, "%s.py" % module), "w") as f:
             f.write(test_string)
+
+        # Save test package information for later.
+        self.tasks = [
+            '%s.%s.TestTask' % (self.package, module),
+        ]
+        self.completion = {}
+        for task in self.tasks:
+            self.completion[task] = None
 
 
         self.task_instances = []
@@ -162,16 +165,13 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def test_listtasks(self):
         """
-        Tests list tasks function to verify it returns all the tasks that it should
+        Tests `TaskManager.list_tasks()` for completeness and times.
         """
-        self.create_cache_entry()
-        self.task_manager.init_task_cache()
+        self.task_manager.autodiscover()
         tasks = self.task_manager.list_tasks()
-        self.assertEqual(len(tasks), 6,
-                "There should be 3 registered tasks but instead there are %d" % len(tasks))
+        self.assertEqual(len(tasks), 1)
 
         for task in self.tasks:
-            self.assert_(tasks.has_key(task), 'Task is missing from list tasks')
             recorded_time = self.completion[task]
             recorded_time = time.mktime(recorded_time.timetuple()) if recorded_time else None
             list_time = tasks[task]['last_run']
@@ -218,7 +218,11 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         self.assertEqual(package, None, 'Registry contains old package')
 
     def test_autodiscover(self):
-        self.fail('Not Implemented')
+        self.assertEqual(len(self.task_manager.list_task_packages()), 0)
+        self.assertEqual(len(self.task_manager.list_tasks()), 0)
+        self.task_manager.autodiscover()
+        self.assertEqual(len(self.task_manager.list_task_packages()), 1)
+        self.assertEqual(len(self.task_manager.list_tasks()), 1)
 
     def test_add_package(self):
         self.create_cache_entry()
