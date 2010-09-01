@@ -19,6 +19,8 @@
 import sys
 import logging
 
+from twisted.internet import reactor
+
 from pydra.config import configure_django_settings, load_settings
 
 
@@ -51,3 +53,15 @@ class MuteStdout(object):
     def write(self, str):
         """ ignore all calls to write """
         pass
+
+
+def clean_reactor():
+    """
+    Cleans the reactor of any uncalled DelayedCall objects created by
+    reactor.callLater().  This is useful for tests that run without the reactor
+    and do not actually need the DelayedCall to run.
+    """
+    
+    # clean reactor
+    for call in reactor.getDelayedCalls():
+        call.cancel()

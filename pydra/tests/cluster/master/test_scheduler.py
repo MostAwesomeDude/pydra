@@ -19,6 +19,7 @@
 import unittest
 import time
 
+from twisted.internet import reactor
 from twisted.internet.defer import Deferred
 
 # configure pydra and django environment
@@ -31,6 +32,7 @@ from pydra.cluster.master import scheduler
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
 from pydra.tests import django_testcase as django
+from pydra.tests import clean_reactor
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, RemoteProxy
 
@@ -221,6 +223,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         Batch.objects.all().delete()
         WorkUnit.objects.all().delete()
         TaskInstance.objects.all().delete()
+        clean_reactor()
 
     def validate_queue_format(self):
         """ helper function for validating format of objects in the queue. This
