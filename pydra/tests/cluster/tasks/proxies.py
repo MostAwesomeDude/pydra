@@ -68,7 +68,7 @@ class StartupAndWaitTask(Task):
         """
         try:
             # set a failsafe to ensure events get cleared
-            self.failsafe = reactor.callLater(5, self.clear_events)
+            self.failsafe = reactor.callLater(2, self.clear_events)
             
             ret = super(StartupAndWaitTask, self)._work(**kwargs)
             self.finished_event.set()
@@ -86,13 +86,12 @@ class StartupAndWaitTask(Task):
         """
         self.data = data
         self.starting_event.set()
-        
         while not self.STOP_FLAG:
             # wait for the running_event.  This  prevents needless looping
             # and still simulates a task that is working
-            self.running_event.wait(5)
-        
-        return self.data
+            self.running_event.wait(2)
+            
+        return {'data':self.data}
 
 
 class StatusSimulatingTaskProxy():

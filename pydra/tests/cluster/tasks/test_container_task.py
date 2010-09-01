@@ -270,7 +270,7 @@ class TaskContainer_Test(twisted_unittest.TestCase):
             
             for subtask in task.subtasks:
                 # wait for event indicating subtask has started
-                subtask.task.starting_event.wait(5)
+                subtask.task.starting_event.wait(2)
                 self.assertEqual(task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
                 self.assertEqual(subtask.task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
                 self.assertEqual(subtask.task.data, args['data'], 'task did not receive data')
@@ -282,7 +282,7 @@ class TaskContainer_Test(twisted_unittest.TestCase):
                 subtask.task.running_event.set()
             
                 #wait for the subtask to finish
-                subtask.task.finished_event.wait(5)
+                subtask.task.finished_event.wait(2)
                 self.assertEqual(subtask.task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
             
             #test that container is marked as finished
