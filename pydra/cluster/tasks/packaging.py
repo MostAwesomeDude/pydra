@@ -56,9 +56,9 @@ class TaskPackage:
     and then to find all classes derived from Task.
 
     == Format of the META descriptor ==
-    Depends = <pkg_name1>, <pkg_name2>,    
+    Depends = <pkg_name1>, <pkg_name2>,
     """
-    
+
     def __init__(self, name, folder, version=None):
         """
         @param version - version to assign to this task.  If None will be
@@ -90,7 +90,7 @@ class TaskPackage:
         if os.path.exists(pkg_folder):
             if not self.version:
                 self.version = compute_sha1_hash(pkg_folder)
-            
+
             logger.info('Loading Package: %s - %s' % (self.name, self.version))
             meta = _read_config(os.path.join(pkg_folder, 'META'))
             try:
@@ -104,7 +104,7 @@ class TaskPackage:
             for filename in files:
                 if filename <> '__init__.py' and filename[-3:] == '.py':
                     module = filename[:-3]
-                    
+
                     try:
                         tasks = __import__(module, {}, {}, ['Task'])
                     except Exception, e:
@@ -137,7 +137,7 @@ class TaskPackage:
                             except:
                                 logger.error('ERROR Loading task: %s' % key)
 
-            
+
 
 
 def _read_config(meta_file_name):
@@ -166,15 +166,17 @@ def compute_sha1_hash(folder):
     """
     Computes the hash of all files in the task directory.
     """
-    def hash_visitor(digester, dirname, names):
-        for name in filter(lambda x: not x.endswith('.pyc'), names):
-            f = open(os.path.join(dirname, name), 'r')
-            digester.update(f.read())
-            f.close()
 
-    sha1_digester = hashlib.sha1()
-    os.path.walk(folder, hash_visitor, sha1_digester)
-    return sha1_digester.hexdigest()
+    digest = hashlib.sha1()
+    for path, directories, files in os.walk(folder):
+        directories.sort()
+        for f in sorted(files):
+            if f.endswith(".pyc"):
+                continue
+            with open(os.path.join(path, f), "rb") as f:
+                digest.update(f.read())
+
+    return digest.hexdigest()
 
 
 class BsdiffTaskPackage(TaskPackage):
