@@ -341,14 +341,15 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
         # verify schedule is advanced        
         self.assert_(s._schedule.calls, "scheduler wasn't advanced")
     
-    def test_queue_subtask_unknown_task(self):
+    def test_queue_task_unknown_task(self):
         """
         A subtask request is submitted from a worker not running a task
         
         Verifies:
-            * nothing happens
+            * verify -1 is returned
         """
-        raise NotImplementedError
+        response = self.scheduler.queue_task('NONEXISTANT_TASK')
+        self.assertEquals(response, -1, 'Response should be -1 error code')
     
     def test_advance_queue(self):
         """
