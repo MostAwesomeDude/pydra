@@ -20,7 +20,7 @@
 import os, sys, inspect
 import hashlib
 
-from pydra.cluster.tasks.tasks import *
+from pydra.cluster.tasks.tasks import Task
 
 import logging
 logger = logging.getLogger('root')
