@@ -115,6 +115,10 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
+
+        os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
+        os.rmdir(self.package_dir)
+
         for directory in (pydra_settings.TASKS_DIR,
             pydra_settings.TASKS_DIR_INTERNAL):
             try:
@@ -130,7 +134,7 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def create_cache_entry(self, hash='FAKE_HASH'):
         """
-        Creates an entry in the task_cache_internal
+        Creates fake entries in the internal tasks directory.
         """
         internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
                     self.package, hash)
@@ -140,20 +144,19 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def clear_cache(self):
         """
-        Clears the entire cache of all packages
+        Clears the entire cache of all packages.
         """
-        self.clear_package_cache()
-        if os.path.exists(self.package_dir_internal):
-            shutil.rmtree(self.package_dir_internal)
+        shutil.rmtree(self.package_dir_internal, True)
 
 
     def clear_package_cache(self):
         """
-        Cleans just the cached versions of the selected task
+        Clears the test package's cache.
         """
         if os.path.exists(self.package_dir_internal):
             for version in os.listdir(self.package_dir_internal):
-                shutil.rmtree(os.path.join(self.package_dir_internal, version))
+                shutil.rmtree(os.path.join(self.package_dir_internal,
+                        version), True)
 
 
     def test_trivial(self):
