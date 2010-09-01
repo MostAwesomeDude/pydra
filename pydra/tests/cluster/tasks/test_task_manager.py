@@ -17,7 +17,7 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
+import os.path
 import shutil
 import tempfile
 import time
@@ -37,31 +37,42 @@ from pydra.util import makedirs
 
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 
+test_string = """
+from pydra.cluster.tasks import Task
+class TestTask(Task):
+    pass
+"""
+
 class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def setUp(self):
         ModuleTestCaseMixIn.setUp(self)
 
         self.tasks = [
-                'demo.demo_task.TestTask',
-                'demo.demo_task.TestContainerTask',
-                'demo.demo_task.TestParallelTask'
+                'test.test.TestTask',
                 ]
         self.completion = {}
         for task in self.tasks:
             self.completion[task] = None
 
         # Munge both task directories to be under our control and also
-        # different for each unit test
+        # different for each unit test.
         pydra_settings.TASKS_DIR = tempfile.mkdtemp()
         pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
 
         self.task_manager = TaskManager(None, lazy_init=True)
         self.task_manager._register(self.manager)
 
-        # find at least one task package to use for testing
-        self.package = 'demo'
-        self.package_dir = '%s/%s' % (self.task_manager.tasks_dir_internal, self.package)
+        # Make a test package.
+        self.package = 'test'
+        self.package_dir = os.path.join(
+            self.task_manager.tasks_dir, self.package)
+        self.package_dir_internal = os.path.join(
+            self.task_manager.tasks_dir_internal, self.package)
+        makedirs(self.package_dir)
+        with open(os.path.join(self.package_dir, "testmodule.py"), "w") as f:
+            f.write(test_string)
+
 
         self.task_instances = []
         for task in self.tasks [:2]:
@@ -106,11 +117,11 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
             try:
                 os.rmdir(directory)
             except OSError:
-                print "Warning: Directory not empty"
+                print "Warning: Directory %s not empty" % directory
                 try:
                     os.removedirs(directory)
                 except OSError:
-                    print "Warning: Directory still dirty"
+                    print "Warning: Directory %s still dirty" % directory
                     shutil.rmtree(directory)
 
 
@@ -129,17 +140,17 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         Clears the entire cache of all packages
         """
         self.clear_package_cache()
-        if os.path.exists(self.package_dir):
-            shutil.rmtree(self.package_dir)
+        if os.path.exists(self.package_dir_internal):
+            shutil.rmtree(self.package_dir_internal)
 
 
     def clear_package_cache(self):
         """
         Cleans just the cached versions of the selected task
         """
-        if os.path.exists(self.package_dir):
-            for version in os.listdir(self.package_dir):
-                shutil.rmtree('%s/%s' % (self.package_dir, version))
+        if os.path.exists(self.package_dir_internal):
+            for version in os.listdir(self.package_dir_internal):
+                shutil.rmtree(os.path.join(self.package_dir_internal, version))
 
 
     def test_trivial(self):
@@ -156,7 +167,8 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         self.create_cache_entry()
         self.task_manager.init_task_cache()
         tasks = self.task_manager.list_tasks()
-        self.assertEqual(len(tasks), 6, "There should be 3 registered tasks")
+        self.assertEqual(len(tasks), 6,
+                "There should be 3 registered tasks but instead there are %d" % len(tasks))
 
         for task in self.tasks:
             self.assert_(tasks.has_key(task), 'Task is missing from list tasks')
@@ -186,7 +198,7 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
     def test_init_package_empty_package(self):
-        os.mkdir(self.package_dir)
+        os.mkdir(self.package_dir_internal)
         self.assertRaises(TaskNotFoundException, self.task_manager.init_package, self.package)
         self.assertEqual(len(self.task_manager.registry), 0, 'Cache is empty, but registry is not')
 
@@ -210,14 +222,16 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def test_add_package(self):
         self.create_cache_entry()
-        package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
+        package = packaging.TaskPackage(self.package,
+            self.package_dir_internal, 'FAKE_HASH')
         self.task_manager._add_package(package)
         package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
     def test_add_package_with_dependency(self):
         self.create_cache_entry()
-        package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
+        package = packaging.TaskPackage(self.package,
+            self.package_dir_internal, 'FAKE_HASH')
         self.task_manager._add_package(package)
         package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
