@@ -22,12 +22,18 @@ from twisted.internet import reactor
 from pydra.cluster.tasks.tasks import Task
 from pydra.cluster.tasks import STATUS_STOPPED
 
+from pydra.tests.proxies import CallProxy
+
 
 class WorkerProxy():
     """
     Class for proxying worker functions
     """
     worker_key = "WorkerProxy"
+
+    def __init__(self):
+        self.request_worker = CallProxy(None, False)
+        self.request_worker_release = CallProxy(None, False)
 
     def get_worker(self):
         return self
