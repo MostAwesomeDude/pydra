@@ -141,10 +141,10 @@ class TaskContainer(Task):
         Callback when a subtask is complete.  Will either move on
         to the next subtask or call the callback
         """
+        
         self._current_subtask += 1
         if self._current_subtask < len (self.subtasks):
             self._start_subtask(args=results)
-        
         else:
             self._complete(results)
 

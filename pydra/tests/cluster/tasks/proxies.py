@@ -96,7 +96,6 @@ class StartupAndWaitTask(Task):
             # wait for the running_event.  This  prevents needless looping
             # and still simulates a task that is working
             self.running_event.wait(2)
-            
         return {'data':self.data}
 
 
