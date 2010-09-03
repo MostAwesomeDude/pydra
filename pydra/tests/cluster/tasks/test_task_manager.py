@@ -17,7 +17,7 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os
+import os.path
 import shutil
 import tempfile
 import time
@@ -37,34 +37,48 @@ from pydra.util import makedirs
 
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 
+test_string = """
+from pydra.cluster.tasks import Task
+class TestTask(Task):
+    pass
+"""
+
 class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def setUp(self):
         ModuleTestCaseMixIn.setUp(self)
 
+        # Munge both task directories to be under our control and also
+        # different for each unit test.
+        pydra_settings.TASKS_DIR = tempfile.mkdtemp()
+        pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
+
+        # Lazy-inited, with no autodiscovery.
+        self.task_manager = TaskManager(None, lazy_init=True)
+        self.task_manager._register(self.manager)
+
+        # Make a test package.
+        self.package = 'test'
+        module = "testmodule"
+        self.package_dir = os.path.join(
+            self.task_manager.tasks_dir, self.package)
+        self.package_dir_internal = os.path.join(
+            self.task_manager.tasks_dir_internal, self.package)
+        makedirs(self.package_dir)
+        with open(os.path.join(self.package_dir, "%s.py" % module), "w") as f:
+            f.write(test_string)
+
+        # Save test package information for later.
         self.tasks = [
-                'demo.demo_task.TestTask',
-                'demo.demo_task.TestContainerTask',
-                'demo.demo_task.TestParallelTask'
-                ]
+            '%s.%s.TestTask' % (self.package, module),
+        ]
         self.completion = {}
         for task in self.tasks:
             self.completion[task] = None
 
-        # Munge both task directories to be under our control and also
-        # different for each unit test
-        pydra_settings.TASKS_DIR = tempfile.mkdtemp()
-        pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
-
-        self.task_manager = TaskManager(None, lazy_init=True)
-        self.task_manager._register(self.manager)
-
-        # find at least one task package to use for testing
-        self.package = 'demo'
-        self.package_dir = '%s/%s' % (self.task_manager.tasks_dir_internal, self.package)
 
         self.task_instances = []
-        for task in self.tasks [:2]:
+        for task in self.tasks:
             #queued tasks
             task_instance = TaskInstance()
             task_instance.task_key=task
@@ -101,22 +115,26 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
+
+        os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
+        os.rmdir(self.package_dir)
+
         for directory in (pydra_settings.TASKS_DIR,
             pydra_settings.TASKS_DIR_INTERNAL):
             try:
                 os.rmdir(directory)
             except OSError:
-                print "Warning: Directory not empty"
+                print "Warning: Directory %s not empty" % directory
                 try:
                     os.removedirs(directory)
                 except OSError:
-                    print "Warning: Directory still dirty"
+                    print "Warning: Directory %s still dirty" % directory
                     shutil.rmtree(directory)
 
 
     def create_cache_entry(self, hash='FAKE_HASH'):
         """
-        Creates an entry in the task_cache_internal
+        Creates fake entries in the internal tasks directory.
         """
         internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
                     self.package, hash)
@@ -126,20 +144,19 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def clear_cache(self):
         """
-        Clears the entire cache of all packages
+        Clears the entire cache of all packages.
         """
-        self.clear_package_cache()
-        if os.path.exists(self.package_dir):
-            shutil.rmtree(self.package_dir)
+        shutil.rmtree(self.package_dir_internal, True)
 
 
     def clear_package_cache(self):
         """
-        Cleans just the cached versions of the selected task
+        Clears the test package's cache.
         """
-        if os.path.exists(self.package_dir):
-            for version in os.listdir(self.package_dir):
-                shutil.rmtree('%s/%s' % (self.package_dir, version))
+        if os.path.exists(self.package_dir_internal):
+            for version in os.listdir(self.package_dir_internal):
+                shutil.rmtree(os.path.join(self.package_dir_internal,
+                        version), True)
 
 
     def test_trivial(self):
@@ -151,15 +168,13 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
 
     def test_listtasks(self):
         """
-        Tests list tasks function to verify it returns all the tasks that it should
+        Tests `TaskManager.list_tasks()` for completeness and times.
         """
-        self.create_cache_entry()
-        self.task_manager.init_task_cache()
+        self.task_manager.autodiscover()
         tasks = self.task_manager.list_tasks()
-        self.assertEqual(len(tasks), 6, "There should be 3 registered tasks")
+        self.assertEqual(len(tasks), 1)
 
         for task in self.tasks:
-            self.assert_(tasks.has_key(task), 'Task is missing from list tasks')
             recorded_time = self.completion[task]
             recorded_time = time.mktime(recorded_time.timetuple()) if recorded_time else None
             list_time = tasks[task]['last_run']
@@ -177,94 +192,45 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
 
-
-    def test_init_package(self):
-        self.create_cache_entry()
-        self.task_manager.init_task_cache()
-        length = len(self.task_manager.registry)
-        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
-        self.assertNotEqual(package, None, 'Registry does not contain package')
-
     def test_init_package_empty_package(self):
-        os.mkdir(self.package_dir)
+        os.mkdir(self.package_dir_internal)
         self.assertRaises(TaskNotFoundException, self.task_manager.init_package, self.package)
         self.assertEqual(len(self.task_manager.registry), 0, 'Cache is empty, but registry is not')
 
     def test_init_package_multiple_versions(self):
-        self.create_cache_entry('FAKE_HASH_1')
-        self.create_cache_entry('FAKE_HASH_2')
-        self.create_cache_entry('FAKE_HASH_3')
-        self.task_manager.init_package(self.package)
-        length = len(self.task_manager.registry)
-        package = self.task_manager.registry[(self.package, 'FAKE_HASH_3')]
-        self.assertNotEqual(package, None, 'Registry does not contain latest package')
-        try:
-            package = None
-            package = self.task_manager.registry[(self.package, 'FAKE_HASH_2')]
-        except KeyError:
-            pass
-        self.assertEqual(package, None, 'Registry contains old package')
+        module = "testmodule"
+        self.test_retrieve_task()
+        with open(os.path.join(self.package_dir, "%s.py" % module), "a") as f:
+            f.write("\n\n")
+        self.task_manager.autodiscover()
+        self.test_retrieve_task()
 
     def test_autodiscover(self):
-        self.fail('Not Implemented')
+        self.assertEqual(len(self.task_manager.list_task_packages()), 0)
+        self.assertEqual(len(self.task_manager.list_tasks()), 0)
+        self.task_manager.autodiscover()
+        self.assertEqual(len(self.task_manager.list_task_packages()), 1)
+        self.assertEqual(len(self.task_manager.list_tasks()), 1)
 
     def test_add_package(self):
         self.create_cache_entry()
-        package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
+        package = packaging.TaskPackage(self.package,
+            self.package_dir_internal, 'FAKE_HASH')
         self.task_manager._add_package(package)
         package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
         self.assertNotEqual(package, None, 'Registry does not contain package')
-
-    def test_add_package_with_dependency(self):
-        self.create_cache_entry()
-        package = packaging.TaskPackage(self.package, self.package_dir, 'FAKE_HASH')
-        self.task_manager._add_package(package)
-        package = self.task_manager.registry[(self.package, 'FAKE_HASH')]
-        self.assertNotEqual(package, None, 'Registry does not contain package')
-        self.fail('Not Implemented')
-
-
-    def test_add_package_with_missing_dependency(self):
-        self.fail('Not Implemented')
 
     def test_retrieve_task(self):
-        self.create_cache_entry()
-        self.task_manager.init_task_cache()
+        self.task_manager.autodiscover()
         helper = RetrieveHelper()
-        task_key = 'demo.demo_task.TestTask'
-        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
-                                   helper.errback)
-        self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
-        self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
+        task_key = self.tasks[0]
+        self.task_manager.retrieve_task(task_key, None, helper.callback,
+            helper.errback)
+        self.assertEquals(task_key, helper.task_key,
+            'Task_key does not match')
 
     def test_lazy_init(self):
-        self.create_cache_entry()
-        helper = RetrieveHelper()
-        task_key = 'demo.demo_task.TestTask'
-        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
-                                   helper.errback)
-        self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
-        self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
-
-    def test_lazy_init_with_dependency(self):
-        self.create_cache_entry()
-        helper = RetrieveHelper()
-        task_key = 'demo.demo_task.TestTask'
-        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
-                                   helper.errback)
-        self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
-        self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
-        self.fail('Not Implemented')
-
-    def test_lazy_init_with_missing_dependency(self):
-        self.create_cache_entry()
-        helper = RetrieveHelper()
-        task_key = 'demo.demo_task.TestTask'
-        self.task_manager.retrieve_task(task_key,'FAKE_HASH', helper.callback, \
-                                   helper.errback)
-        self.assertEquals(task_key, helper.task_key , 'Task_key does not match')
-        self.assertEquals('FAKE_HASH', helper.version , 'Task_key does not match')
-        self.fail('Not Implemented')
+        self.assertTrue(self.task_manager.lazy_init)
 
 
 class RetrieveHelper():
@@ -284,7 +250,7 @@ class RetrieveHelper():
         self.kwargs = kw
 
     def errback(self):
-        pass
+        print "Retrieval failed!"
 
 if __name__ == "__main__":
     unittest.main()

@@ -444,7 +444,8 @@ class TaskManager(Module):
             task_key
                 The task key.
             version
-                The task version.
+                The task version, or None for the latest version added to the
+                manager's cache.
         """
 
         pkg_name = task_key[:task_key.find('.')]

@@ -184,7 +184,7 @@ class MapReduceTask(Task):
         self.__lock = Lock()
         self.map_tasks = {}
         self.reduce_tasks = {}
-
+        
         self.im = self.intermediate
         self.im.task_id = msg
         self.im.reducers = self.reducers

@@ -4,8 +4,18 @@ import tempfile, shutil
 
 from pydra.cluster.tasks.mapreduce import *
 from pydra.cluster.tasks.tasks import Task
-from pydra.task_cache.mapreduce import *
+from pydra.cluster.tasks.mapreduce import MapReduceTask
 from proxies import *
+
+
+class TestMapReduce(MapReduceTask):
+    pass
+
+class TestMap(Task):
+    pass
+
+class TestReduce(Task):
+    pass
 
 
 class AppendableDict_Test(unittest.TestCase):
@@ -80,7 +90,7 @@ class MapReduceTask_Test(unittest.TestCase):
     """
 
     def setUp(self):
-        self.mapreduce_task = CountWords()
+        self.mapreduce_task = TestMapReduce()
         self.worker = WorkerProxy()
         self.mapreduce_task.parent = self.worker
 
@@ -93,7 +103,7 @@ class MapReduceTask_Test(unittest.TestCase):
         """
         Verifies that the task key used to look up the task is generated correctly
         """
-        expected = 'CountWords'
+        expected = 'TestMapReduce'
         key = self.mapreduce_task.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
 
@@ -104,12 +114,12 @@ class MapReduceTask_Test(unittest.TestCase):
         """
 
         # test for MapTask
-        expected = 'CountWords.MapWords'
+        expected = 'TestMapReduce.TestMap'
         key = self.mapreduce_task.maptask.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
 
         # test for ReduceTask
-        expected = 'CountWords.ReduceWords'
+        expected = 'TestMapReduce.ReduceWords'
         key = self.mapreduce_task.reducetask.get_key()
         self.assertEqual(key, expected, 'Generated key [%s] does not match the expected key [%s]' % (key, expected) )
 
@@ -121,7 +131,7 @@ class MapReduceTask_Test(unittest.TestCase):
              * that the task key returns an error if given an incorrect key
         """
         # correct key
-        key = 'CountWords'
+        key = 'TestMapReduce'
         expected = self.mapreduce_task
         returned = self.mapreduce_task.get_subtask(key.split('.'))
         self.assert_(returned is expected, 'Subtask retrieved was not the expected Task')
@@ -138,19 +148,19 @@ class MapReduceTask_Test(unittest.TestCase):
              * that the task key returns an error if given an incorrect key
         """
         # correct key for maptask
-        key = 'CountWords.MapWords'
+        key = 'TestMapReduce.TestMap'
         expected = self.mapreduce_task.maptask
         returned = self.mapreduce_task.get_subtask(key.split('.'))
         self.assert_(returned is expected, 'MapTask retrieved was not the expected Task')
 
         # correct key for reducetask
-        key = 'CountWords.ReduceWords'
+        key = 'TestMapReduce.TestReduce'
         expected = self.mapreduce_task.reducetask
         returned = self.mapreduce_task.get_subtask(key.split('.'))
         self.assert_(returned is expected, 'ReduceTask retrieved was not the expected Task')
 
         # incorrect Key
-        key = 'CountWords.FakeTaskThatDoesNotExist'
+        key = 'TestMapReduce.FakeTaskThatDoesNotExist'
         self.assertRaises(TaskNotFoundException, self.mapreduce_task.get_subtask, key.split('.'))
 
 
