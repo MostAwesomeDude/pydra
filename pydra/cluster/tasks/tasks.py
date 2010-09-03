@@ -138,7 +138,6 @@ class Task(object):
             callback_args : dict
                 Keyword arguments to be passed to `callback`
         """
-
         self.__callback = callback
         self._callback_args=callback_args
 
@@ -271,6 +270,7 @@ class Task(object):
 
         else:
             #else this is a normal task just execute it
+            
             self.logger.debug('Task - starting task: %s' % self)
             if self.get_worker():
                 self.work_deferred = threads.deferToThread(self._start, args,

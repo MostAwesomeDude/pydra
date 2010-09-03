@@ -32,7 +32,7 @@ class ParallelTask(Task):
     ParallelTask - is a task that can be broken into discrete work units
     """
     _data_in_progress = {}      # workunits of data
-    _workunit_count = 1         # count of workunits handed out.  This is used to identify transactions
+    _workunit_count = 0         # count of workunits handed out.  This is used to identify transactions
     _workunit_total = 0
     _workunit_completed = 0     # count of workunits handed out.  This is used to identify transactions
     subtask_key = None          # cached key from subtask
@@ -43,33 +43,30 @@ class ParallelTask(Task):
     def __init__(self, msg=None):
         Task.__init__(self, msg)
         self._lock = RLock()             # general lock
-        self.subtask = None              # subtask that is parallelized
-        self.__subtask_class = None      # class of subtask
-        self.__subtask_args = None       # args for initializing subtask
-        self.__subtask_kwargs = None     # kwargs for initializing subtask
-
+        self._subtask = None              # subtask that is parallelized
+        self._subtask_class = None      # class of subtask
+        self._subtask_args = None       # args for initializing subtask
+        self._subtask_kwargs = None     # kwargs for initializing subtask
+        
         self.datasource = DataSource(self.datasource)
-
+        
         self.logger = logging.getLogger('root')
 
+    def __get_subtask(self):
+        """ getter for lazy instantiation of subtask property """
+        if not self._subtask:
+            subtask = self._subtask_class(*self._subtask_args, \
+                                                **self._subtask_kwargs)
+            subtask.parent = self
+            self._subtask = subtask
+        return self._subtask
 
-    def __getattribute__(self, key):
-        """
-        Overridden to lazy instantiate subtask when requested
-        """
-        if key == 'subtask':
-            if not self.__dict__['subtask']:
-                subtask = self.__subtask_class(*self.__subtask_args, \
-                                                    **self.__subtask_kwargs)
-                self.subtask = subtask
-            return self.__dict__['subtask']
-        return Task.__getattribute__(self, key)
-
-
-    def __setattr__(self, key, value):
-        Task.__setattr__(self, key, value)
-        if key == 'subtask' and value:
+    def __set_subtask(self, value):
+        """ setter for backward reference for subtask.parent """
+        if value:
             value.parent = self
+    
+    subtask=property(__get_subtask, __set_subtask)
 
 
     def _get_subtask(self, task_path, clean=False):
@@ -90,53 +87,55 @@ class ParallelTask(Task):
                 return task_path, self
             else:
                 raise TaskNotFoundException("Task not found: %s" % task_path)
+        
+        # discard old version
+        if clean:
+            self._subtask = None
+        
         #recurse down into the child
         consumed, subtask = self.subtask._get_subtask(task_path[1:])
         return task_path[:2], subtask
 
-
     def request_workers(self):
         """
         Create work requests for all planned subtasks.
-
+        
         This function eagerly creates all planned work requests in one shot,
         using `get_work_units()` to create all work units.
-
+        
         More complex `Task` subclasses, like `MapReduceTask`, may employ a
         more sophisticated algorithm that permits cross worker dependencies.
         """
-
+        
         for data, index in self.get_work_units():
             self.logger.debug('Paralleltask - assigning remote work: key=%s, args=%s'
                 % ('--', index))
             self.parent.request_worker(self.subtask.get_key(), {'data': data},
                 index)
 
-
     def get_work_units(self):
         """
         Yield a series of work units.
-
+        
         This function returns *all* work units, one by one. For each work
         unit, the data of the unit is stored in `_data_in_progress`.
-
+        
         Warning: This method will take the instance lock as needed, but should
         not be locked during yields.
-
+        
         :return: tuple(data, index)
         """
         # XXX needs to have a delayable path as well
         slicer = self.datasource.unpack()
-
+        
         while True:
             data, index = next(slicer), self._workunit_count
-
+        
             yield data, index
-
+        
             with self._lock:
                 self._workunit_count += 1
                 self._data_in_progress[index] = data
-
 
     def _stop(self):
         """
@@ -144,7 +143,6 @@ class ParallelTask(Task):
         """
         Task._stop(self)
         self.subtask._stop()
-
 
     def _work(self, **kwargs):
         """
@@ -154,41 +152,40 @@ class ParallelTask(Task):
         self.request_workers()
         self.logger.debug('Paralleltask - initial work assigned!')
 
-
     def _batch_complete(self, results):
         for workunit, result, failed in results:
             if not failed:
                 self._work_unit_complete(results, workunit)
 
-
     def _work_unit_complete(self, results, index):
         """
         A work unit completed.  Handle the common management tasks to remove the data
         from in_progress.  Also call task specific work_unit_complete(...)
-
+        
         This method *MUST* lock while it is altering the lists of data
         """
         self.logger.debug('Paralleltask - Work unit completed')
         with self._lock:
             # run the task specific post process
+            
             self.work_unit_complete(self._data_in_progress[index], results)
-
+            
             # remove the workunit from _in_progress
             del self._data_in_progress[index]
-
+            
             #check stop flag
             if self.STOP_FLAG:
                 self.task_complete(None)
-
+            
             # no data left in progress, release 1 worker.  when there is work in
             # the queue the waiting worker will be selected automatically by
             # the scheduler.  Releasing it must be explicit though.
             if not self._data_in_progress:
                 self.logger.debug('ParallelTask - releasing a worker')
                 self.get_worker().request_worker_release()
-
+            
             self._workunit_completed += 1
-
+            
             #check for more work
             if not self._data_in_progress:
                 #all work is done, call the task specific function to combine the results 
@@ -196,7 +193,6 @@ class ParallelTask(Task):
                 results = self.work_complete()
                 self._complete(results)
                 return
-
 
     def _worker_failed(self, index):
         """
@@ -206,7 +202,6 @@ class ParallelTask(Task):
         with self._lock:
             #remove data from in progress
             del self._data_in_progress[index]
-
 
     @staticmethod
     def from_subtask(cls, *args, **kwargs):
@@ -218,53 +213,48 @@ class ParallelTask(Task):
         pt.set_subtask(cls, *args, **kwargs)
         return pt
 
-
     def progress(self):
         """
         progress - returns the progress as a number 0-100.
-
+        
         A parallel task's progress is a derivitive of its workunits:
            COMPLETE_WORKUNITS / TOTAL_WORKUNITS
         """
         total = self._workunit_completed + len(self._data_in_progress)
-
+        
         if total == 0:
             return 0
-
+        
         return 100 * self._workunit_completed  / total
-
 
     def set_subtask(self, class_, *args, **kwargs):
         """
         Sets the subtask for this paralleltask.  The class, args, and kwargs
         are stored so that they may be lazily instantiated when needed.
         """
-        self.__subtask_class = class_
-        self.__subtask_args = args
-        self.__subtask_kwargs = kwargs
-
+        self._subtask_class = class_
+        self._subtask_args = args
+        self._subtask_kwargs = kwargs
 
     def start_subtask(self, task, subtask_key, workunit, kwargs, callback, \
                       callback_args):
         """
         Launch a specified subtask.
-
+        
         Only called from the subtask's `Worker`, as the final step before
         actually letting the subtask do its work.
-
+        
         :Parameters:
             task : `Task`
                 The subtask instance to be run.
             workunit : dict
                 The keyword arguments to be passed to the task.
         """
-
         # Delayable?
         if self.datasource.delayable:
             workunit["data"] = self.datasource.unpack()
-
+        
         task._start(workunit, callback, callback_args)
-
 
     def work_complete(self):
         """
@@ -273,12 +263,11 @@ class ParallelTask(Task):
         """
         pass
 
-
     def work_unit_complete(self, workunit, results):
         """
         Method stub for method called to post process results.  This
         is implemented by users that want to include automatic post-processing
-
+        
         @param workunit - key and other args sent when assigning the workunit
         @param results - results sent by the completed subtask
         """
