@@ -68,7 +68,6 @@ class ParallelTask(Task):
     
     subtask=property(__get_subtask, __set_subtask)
 
-
     def _get_subtask(self, task_path, clean=False):
         """
         Returns the subtask specified by the path.  Overridden to search subtask

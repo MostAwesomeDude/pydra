@@ -125,15 +125,71 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         pt = self.pt
         pt.start()
         return threads.deferToThread(self.verify_parallel_work)
-   
-    def test_start_subtask(self):
-        raise NotImplementedError
 
     def test_worker_failed(self):
-        raise NotImplementedError
+        """
+        Work being returned due to worker failure failure:
+        
+        Verifies work is removed from in progress
+        """
+        pt = self.pt
+        pt.request_workers()
+        
+        for i in range(10):
+            pt._worker_failed(i)
+            self.assert_(i not in pt._data_in_progress, 'workunit still in progress')
+            self.assertEquals(len(pt._data_in_progress), 9-i, 'Data in progress is wrong size')
+            
+        self.assertEquals(len(pt._data_in_progress), 0, 'Data in progress is wrong size')
+    
+    def verify_batch_complete(self):
+        """
+        helper function for verifying batch completiion of parallel task
+        subtask.  Must be called from deferToThread()
+        
+        Verifies Start:
+            * status is marked running
+            * work_units in progress is correct
+            * work_unit count is correct
+            * work_request called for every work unit
+        
+        Verifies Workunit completion:
+            * _data_in_progress is removed
+            * custom subtask completion function is run
+            * worker is released if no more work is pending
+            
+        Verifies All workunits complete:
+            * all workers are released
+            * custom completion function is run
+            * task is marked complete
+            * task returns response
+        """
+        # sleep for 0.1 second to allow start thread to finish requesting workes
+        time.sleep(.1)
+        pt = self.pt
+        self.assertEqual(pt.status(), STATUS_RUNNING)
+        self.assertEqual(pt._workunit_count, 10, "Workunit count is not correct")
+        self.assertEqual(len(pt._data_in_progress), 10, "in progress count is not correct")
+        self.assertEqual(len(self.worker.request_worker.calls), 10, "request_worker was not called the correct number of times")
+        
+        for i in range(0,10,2):
+            self.assertEqual(pt.status(), STATUS_RUNNING)
+            results = ((i, i, 0), (i+1, i+1, 0))
+            pt._batch_complete(results)
+            self.assertEqual(pt._workunit_count, 10, "Workunit count is not correct")
+            self.assertEqual(len(pt._data_in_progress), 8-i, "in progress count is not correct")
+        
+        self.assert_(pt.complete, 'task is not marked complete via completion code')
+        self.assertEquals(pt.status(), STATUS_COMPLETE, "Status is not reporting completed")
+        self.assertEqual(len(self.worker.request_worker_release.calls), 1, "request_worker_release was not called the correct number of times")
 
     def test_batch_complete(self):
-        raise NotImplementedError
+        """
+        Tests completing batched workunits
+        """
+        pt = self.pt
+        pt.start()
+        return threads.deferToThread(self.verify_batch_complete)
 
 
 class ParallelTaskStandaloneTest(twisted_unittest.TestCase):
@@ -215,16 +271,6 @@ class ParallelTaskStandaloneTest(twisted_unittest.TestCase):
             subtask0._status = status
             subtask1 = self.pt.get_subtask(key, clean=True)
             self.assertNotEqual(subtask0, subtask1, 'Subtask is not a different instance, status=%s' % status)
-
-    def test_start_subtask(self):
-        """
-        Tests starting a subtask
-        
-        Verify:
-            * workunit is unpacked correctly for delayable datasources
-            * workunit is used as is if not delayable
-        """
-        raise NotImplementedError
 
 
 class ParallelTask_Test(unittest.TestCase):
