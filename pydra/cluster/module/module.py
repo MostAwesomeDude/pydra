@@ -89,6 +89,13 @@ class Module(object):
         """
         self.manager = manager
 
+    def _deregister(self):
+        """
+        Stops the module.  Modules should override this if they start any type
+        of service or periodic work.
+        """
+        self.manager = None
+
     def emit(self, signal, *args, **kwargs):
         """
         convenience function for emitting signals    

@@ -157,7 +157,7 @@ class ModuleManager(object):
                         instantiated by the ModuleManager
         """
         logger.info('Unloading Module: %s' % module.__class__.__name__)
-        module._register(self)
+        module._deregister()
         self._modules.remove(module)
         
         for signal in module._signals:
