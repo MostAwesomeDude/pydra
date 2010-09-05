@@ -36,45 +36,41 @@ class InterfaceModule(Module):
     Implementations of interfaces.  This class provides a place to stick
     common code.
     """
-
     _registered_interfaces = {}
+    
+    def __init__(self, key_size=4096, key=None):
+        self._registered_interfaces = {}
+        self.sessions = {}
+        self.key_size = key_size
+        self.priv_key_encrypt = key.encrypt if key else None
 
     def _register(self, manager):
         Module._register(self, manager)
-        self._registered_interfaces = {}   
-        self.register_interface(self, self.authenticate, {'auth':False, \
-                                                          'include_user':True})
-        self.register_interface(self, self.challenge_response, {'auth':False, \
-                                                        'include_user':True})
+        
+        # register authentication functions.
+        self.register_interface(self, self.authenticate, auth=False, \
+                                                          include_user=True)
+        self.register_interface(self, self.challenge_response, auth=False, \
+                                                        include_user=True)
         
         # sessions - temporary sessions for all authenticated controllers
-        self.sessions = {}
-        self.session_cleanup = reactor.callLater(20, self.__clean_sessions)
+        self.session_cleanup = reactor.callLater(20, self._clean_sessions)
 
-    
-    def _interface_name(self, module, interface, **params):
-        name = None
-        
+    def _interface_name(self, module, interface, name=None, **params):
         # unpack interface if it is a tuple of values
-        if isinstance(interface, (tuple, list)):
-            interface, params = interface
-            if 'name' in params:
-                name = params['name']
-                del params['name']
-        
-        if isinstance(interface, (str,)):
-            name = name if name else interface
-        else:
-            name = name if name else interface.__name__
-            
+        if not name:
+            if isinstance(interface, (str,)):
+                name = name if name else interface
+            else:
+                name = name if name else interface.__name__
         return name
     
-    def deregister_interface(self, module, interface):
-        name = self._interface_name(module, interface)
+    def deregister_interface(self, module, interface, name=None):
+        name = self._interface_name(module, interface, name)
         if name in self._registered_interfaces:
             del self._registered_interfaces[name]
 
-    def register_interface(self, module, interface, params={}):
+    def register_interface(self, module, interface, name=None, **params):
         """
         Registers an interface with this class.  The functions passed in are
         added to a dictionary that is searched when __getattribute__ is called.
@@ -88,7 +84,7 @@ class InterfaceModule(Module):
                           be a tuple or list of function/property and the name
                           to bind it as.
         """
-        name = self._interface_name(module, interface, **params)
+        name = self._interface_name(module, interface, name)
         
         if isinstance(interface, (str,)):
             interface = AttributeWrapper(module, interface)
@@ -103,7 +99,7 @@ class InterfaceModule(Module):
                                                     module.__class__.__name__, \
                                                     interface))
 
-    def __clean_sessions(self):
+    def _clean_sessions(self):
         """
         Remove session that have expired.
         """
@@ -112,13 +108,14 @@ class InterfaceModule(Module):
         for k,v in sessions.items():
             if v['expire'] <= now:
                 del sessions[k]
-        
-        self.session_cleanup = reactor.callLater(20, self.__clean_sessions)
 
     def authenticate(self, user):
         """
         Starts the authentication process by generating a challenge string
         """
+        if not user in self.sessions:
+            return
+        
         # create a random challenge.  The plaintext string must be hashed
         # so that it is safe to be sent over the AMF service.
         challenge = hashlib.sha512(secureRandom(self.key_size/16)).hexdigest()
@@ -162,7 +159,6 @@ class InterfaceModule(Module):
         Overridden to allowed exposed functions/attributes to be looked up as if
         they were members of this instance
         """
-        
         if key != '_registered_interfaces' and key in self._registered_interfaces:
             return self._registered_interfaces[key]
         
