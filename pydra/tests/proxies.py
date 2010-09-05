@@ -120,12 +120,26 @@ class CallProxy():
                 args_, kwargs_ = t
                 if args_==args and kwargs_==kwargs:
                     return t
-            testcase.fail("exact call (%s) did not occur: %s" % (signal, self.signals))
+            testcase.fail("exact call (%s) did not occur: %s" % (self.func, self.calls))
             
         else:
             # simple match
             testcase.assert_(self.calls, "%s was not called: %s" % (self.func, self.calls))
             return self.calls[0]
+
+    def assertNotCalled(self, testcase, *args, **kwargs):
+        """
+        Assertion function for checking if callproxy was not called
+        """
+        if args or kwargs:
+            #detailed match
+            for t in self.calls:
+                args_, kwargs_ = t
+                if args_==args and kwargs_==kwargs:
+                    testcase.fail("exact call (%s) was made: %s" % (self.func, self.calls))
+        else:
+            # simple match
+            testcase.assertFalse(self.calls, '%s was not called' % self.func)
 
 
 class RemoteProxy():
