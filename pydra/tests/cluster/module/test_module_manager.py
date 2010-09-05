@@ -184,8 +184,8 @@ class ModuleManagerTestCase(unittest.TestCase):
         for interface in interfaces:
             self.assertFalse(interface in manager._interfaces)
         
-        self.assertFalse(api0._registered_interfaces)
-        self.assertFalse(api1._registered_interfaces)
+        self.assertFalse(api0._interfaces)
+        self.assertFalse(api1._interfaces)
     
     def test_register_interface_module(self):
         """
