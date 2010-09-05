@@ -18,7 +18,6 @@
 """
 import unittest
 
-
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
@@ -39,7 +38,7 @@ class MasterLogAggregatorTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = MasterLogAggregator()
-        manager.register_module(module)
+        manager.register(module)
         self.assert_(module in manager._modules)
 
 
@@ -57,5 +56,5 @@ class NodeLogAggregatorTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = NodeLogAggregator()
-        manager.register_module(module)
+        manager.register(module)
         self.assert_(module in manager._modules)
