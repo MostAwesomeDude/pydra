@@ -90,7 +90,7 @@ class ModuleManager(object):
             try:
                 if module.__class__.__name__ == 'type':
                     module = module()
-                self.register_module(module)
+                self.register(module)
                 
             except Exception, e:
                 logger.error('Error Loading Module: %s' % module)
@@ -148,7 +148,7 @@ class ModuleManager(object):
             if not signals:
                 del self._listeners[signal]
 
-    def deregister_module(self, module):
+    def deregister(self, module):
         """
         deregister a module
         
@@ -294,7 +294,7 @@ class ModuleManager(object):
         except KeyError:
             self._listeners[signal] = [function]
 
-    def register_module(self, module):
+    def register(self, module):
         """
         Register a module
         
