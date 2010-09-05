@@ -64,7 +64,6 @@ class Module(object):
         """
         pass
 
-
     def __getattribute__(self, key):
         """
         Overridden to pass shared properties through to the manager
@@ -74,16 +73,14 @@ class Module(object):
             return val
         return object.__getattribute__(self, key)
 
-
     def __setattr__(self, key, value):
         """
         Overridden to pass shared property lookups through to the manager
         """
         if key not in ('__dict__', '_shared') and key in self._shared:
             self.manager.set_shared(key, value)
-
+        
         self.__dict__[key] = value
-
 
     def _register(self, manager, *args, **kwargs):
         """
@@ -91,7 +88,6 @@ class Module(object):
         module is registered with the ModuleManager
         """
         self.manager = manager
-
 
     def emit(self, signal, *args, **kwargs):
         """

@@ -35,12 +35,11 @@ class ModuleReferenceable(pb.Referenceable):
     def __init__(self, remotes):
         self._remotes = remotes
 
-
     def __getattr__(self, key):
         """
         Overridden to lookup remoted methods from modules
         """
-
+        
         # proxy perspective methods through the _remotes.
         if 'remote_' == key[:7]:
             
@@ -49,5 +48,5 @@ class ModuleReferenceable(pb.Referenceable):
             # in the list because the wrapper is implementation specific
             #return RemoteWrapper(self, self._remotes[key[7:]])
             return self._remotes[key[7:]]
-
+        
         return pb.Avatar.__getattr__(key)

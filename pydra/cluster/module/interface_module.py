@@ -46,49 +46,62 @@ class InterfaceModule(Module):
                                                           'include_user':True})
         self.register_interface(self, self.challenge_response, {'auth':False, \
                                                         'include_user':True})
-
+        
         # sessions - temporary sessions for all authenticated controllers
         self.sessions = {}
         self.session_cleanup = reactor.callLater(20, self.__clean_sessions)
 
-
-    def register_interface(self, module, interface, params={}):
-        """
-        Registers an interface with this class.  The functions passed in are
-        added to a dictionary that is searched when __getattribute__ is called.
-        This allows this class to proxy calls to modules that expose functions
-
-        only functions or properties can be exposed.  properties are exposed 
-        by registering the property name.  It will be wrapped in a function
-
-        @param interface: A function or property to expose.  Optionally it can
-                          be a tuple or list of function/property and the name
-                          to bind it as.
-        """
+    
+    def _interface_name(self, module, interface, **params):
         name = None
-
+        
         # unpack interface if it is a tuple of values
         if isinstance(interface, (tuple, list)):
             interface, params = interface
             if 'name' in params:
                 name = params['name']
                 del params['name']
-
+        
         if isinstance(interface, (str,)):
             name = name if name else interface
-            interface = AttributeWrapper(module, interface)
         else:
             name = name if name else interface.__name__
+            
+        return name
+    
+    def deregister_interface(self, module, interface):
+        name = self._interface_name(module, interface)
+        if name in self._registered_interfaces:
+            del self._registered_interfaces[name]
 
+    def register_interface(self, module, interface, params={}):
+        """
+        Registers an interface with this class.  The functions passed in are
+        added to a dictionary that is searched when __getattribute__ is called.
+        This allows this class to proxy calls to modules that expose functions
+        
+        only functions or properties can be exposed.  properties are exposed 
+        by registering the property name.  It will be wrapped in a function
+        
+        :Parameters:
+            interface: A function or property to expose.  Optionally it can
+                          be a tuple or list of function/property and the name
+                          to bind it as.
+        """
+        name = self._interface_name(module, interface, **params)
+        
+        if isinstance(interface, (str,)):
+            interface = AttributeWrapper(module, interface)
+        
         if name in self._registered_interfaces:
             logger.debug('Binding over existing interface mapped: %s - to %s' \
                         % (name, self._registered_interfaces[name]))
-
-        self._registered_interfaces[name] = self.wrap_interface(interface, params)
+        
+        self._registered_interfaces[name] = self.wrap_interface(interface, \
+                                                                **params)
         logger.debug('Exposing Interface: %s => %s.%s' % (name, \
                                                     module.__class__.__name__, \
-                                                    interface.__name__))
-
+                                                    interface))
 
     def __clean_sessions(self):
         """
@@ -99,9 +112,8 @@ class InterfaceModule(Module):
         for k,v in sessions.items():
             if v['expire'] <= now:
                 del sessions[k]
-
+        
         self.session_cleanup = reactor.callLater(20, self.__clean_sessions)
-
 
     def authenticate(self, user):
         """
@@ -110,16 +122,15 @@ class InterfaceModule(Module):
         # create a random challenge.  The plaintext string must be hashed
         # so that it is safe to be sent over the AMF service.
         challenge = hashlib.sha512(secureRandom(self.key_size/16)).hexdigest()
-
+        
         # now encode and hash the challenge string so it is not stored 
         # plaintext.  It will be received in this same form so it will be 
         # easier to compare
         challenge_enc = self.priv_key_encrypt(challenge, None)
         challenge_hash = hashlib.sha512(challenge_enc[0]).hexdigest()
-
+        
         self.sessions[user]['challenge'] = challenge_hash
         return challenge
-
 
     def challenge_response(self, user, response):
         """
@@ -130,31 +141,29 @@ class InterfaceModule(Module):
         challenge = self.sessions[user]['challenge']
         if challenge and challenge == response:
             self.sessions[user]['auth'] = True
-
+        
         # destroy challenge, each challenge is one use only.
         self.sessions[user]['challenge'] = None
-
+        
         return self.sessions[user]['auth']
 
-
-    def wrap_interface(self, interface):
+    def wrap_interface(self, interface, **params):
         """
         Wrap the interface in an implementation specific wrapper.  This is to
         allow implementations of this class to add any logic specific to that
         API
-
+        
         by default this does nothing
         """
         return interface
-
 
     def __getattribute__(self, key):
         """
         Overridden to allowed exposed functions/attributes to be looked up as if
         they were members of this instance
         """
-
+        
         if key != '_registered_interfaces' and key in self._registered_interfaces:
             return self._registered_interfaces[key]
-
+        
         return object.__getattribute__(self, key)
