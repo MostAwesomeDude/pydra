@@ -23,10 +23,12 @@ from twisted.internet.defer import Deferred
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
+from pydra.cluster.module import ModuleManager
 from pydra.cluster.node import worker_manager
 from pydra.cluster.constants import WORKER_STATUS_IDLE
 from pydra.cluster.tasks import STATUS_UNKNOWN
 
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.cluster.node.test_worker_connection_manager import WorkerConnectionManagerMixin
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, RemoteProxy, WorkerAvatarProxy
@@ -86,6 +88,23 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
     
     def tearDown(self):
         pass
+
+    def test_trivial(self):
+        """
+        Trivial test that just instantiates class
+        """
+        module = worker_manager.WorkerManager()
+    
+    def test_register(self):
+        """
+        Tests registering the module with a manager
+        """
+        manager = ModuleManager()
+        module = worker_manager.WorkerManager()
+        api = TestAPI()
+        manager.register(api)
+        manager.register(module)
+        self.assert_(module in manager._modules)
 
     def test_init_node(self):
         """

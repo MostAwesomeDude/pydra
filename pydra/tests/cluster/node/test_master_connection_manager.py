@@ -21,7 +21,9 @@ import unittest
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
+from pydra.cluster.module import ModuleManager
 from pydra.cluster.node import master_connection_manager
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import RemoteProxy
 
@@ -40,6 +42,23 @@ class MasterConnectionManager(unittest.TestCase, ModuleTestCaseMixIn, MasterConn
     
     def tearDown(self):
         pass
+
+    def test_trivial(self):
+        """
+        Trivial test that just instantiates class
+        """
+        module = master_connection_manager.MasterConnectionManager()
+    
+    def test_register(self):
+        """
+        Tests registering the module with a manager
+        """
+        manager = ModuleManager()
+        module = master_connection_manager.MasterConnectionManager()
+        api = TestAPI()
+        manager.register(api)
+        manager.register(module)
+        self.assert_(module in manager._modules)
 
     def test_master_authenticated(self):
         """
