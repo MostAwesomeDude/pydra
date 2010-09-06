@@ -32,10 +32,12 @@ class ModuleManagerProxy(ModuleManager):
         self.signals = []
         self.testcase = None
         super(ModuleManagerProxy, self).__init__(*args, **kwargs)
+        self.emit = True
 
     def emit_signal(self, signal, *args, **kwargs):
         self.signals.append((signal, args, kwargs))
-        super(ModuleManagerProxy, self).emit_signal(signal, *args, **kwargs)
+        if self.emit:
+            super(ModuleManagerProxy, self).emit_signal(signal, *args, **kwargs)
 
     def assertEmitted(self, signal, *args, **kwargs):
         """ asserts that the signal was emitted """        
