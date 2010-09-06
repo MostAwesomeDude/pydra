@@ -23,6 +23,7 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.logs.log_aggregator import MasterLogAggregator, NodeLogAggregator
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class MasterLogAggregatorTestCase(unittest.TestCase):
     
@@ -56,5 +57,7 @@ class NodeLogAggregatorTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = NodeLogAggregator()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

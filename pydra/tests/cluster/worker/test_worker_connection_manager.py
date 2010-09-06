@@ -23,8 +23,9 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.worker import WorkerConnectionManager
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
-class TestCase(unittest.TestCase):
+class WorkerconnectionManagerTestCase(unittest.TestCase):
     
     def test_trivial(self):
         """
@@ -38,5 +39,7 @@ class TestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = WorkerConnectionManager()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

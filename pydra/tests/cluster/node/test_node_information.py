@@ -20,6 +20,7 @@ import unittest
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.node.node_information import NodeInformation
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class TestCase(unittest.TestCase):
     
@@ -35,5 +36,7 @@ class TestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = NodeInformation()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

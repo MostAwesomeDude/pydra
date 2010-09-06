@@ -23,6 +23,7 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.master.task_sync import TaskSyncServer
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class TaskSyncServerTestCase(unittest.TestCase):
     
@@ -38,5 +39,7 @@ class TaskSyncServerTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = TaskSyncServer()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

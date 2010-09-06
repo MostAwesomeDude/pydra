@@ -23,6 +23,7 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.master.auto_discovery import AutoDiscoveryModule
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class AutoDiscoveryTestCase(unittest.TestCase):
     
@@ -38,7 +39,7 @@ class AutoDiscoveryTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = AutoDiscoveryModule()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)
-    
-    

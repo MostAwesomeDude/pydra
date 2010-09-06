@@ -41,5 +41,3 @@ class TwistedWebInterfaceTestCase(unittest.TestCase):
         module = TwistedWebInterface()
         manager.register(module)
         self.assert_(module in manager._modules)
-    
-    

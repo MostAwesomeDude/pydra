@@ -29,10 +29,12 @@ load_settings()
 
 from pydra.cluster.constants import *
 from pydra.cluster.master import scheduler
+from pydra.cluster.module import ModuleManager
 from pydra.cluster.tasks import *
 from pydra.models import TaskInstance, WorkUnit, Batch
 from pydra.tests import django_testcase as django
 from pydra.tests import clean_reactor
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 from pydra.tests.proxies import ModuleManagerProxy, ThreadsProxy, CallProxy, RemoteProxy
 
@@ -251,6 +253,24 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
     """
     Tests for the TaskScheduler involving scheduling tasks and running them
     """
+    
+    def test_trivial(self):
+        """
+        Trivial test that just instantiates class
+        """
+        module = scheduler.TaskScheduler()
+    
+    def test_register(self):
+        """
+        Tests registering the module with a manager
+        """
+        manager = ModuleManager()
+        module = scheduler.TaskScheduler()
+        api = TestAPI()
+        manager.register(api)
+        manager.register(module)
+        self.assert_(module in manager._modules)
+    
     def test_init(self):
         """
         Verifies the queue starts empty

@@ -20,8 +20,9 @@ import unittest
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.node.task_sync import TaskSyncClient
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
-class TestCase(unittest.TestCase):
+class TaskSyncClientTestCase(unittest.TestCase):
     
     def test_trivial(self):
         """
@@ -35,5 +36,7 @@ class TestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = TaskSyncClient()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

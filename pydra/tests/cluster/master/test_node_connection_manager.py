@@ -24,6 +24,7 @@ setup_test_environment()
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.master.node_connection_manager import NodeConnectionManager
 from pydra.tests import django_testcase
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class NodeConnectionManagerTestCase(django_testcase.TestCase):
     
@@ -39,5 +40,7 @@ class NodeConnectionManagerTestCase(django_testcase.TestCase):
         """
         manager = ModuleManager()
         module = NodeConnectionManager()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)

@@ -32,4 +32,3 @@ class TestCase(django_testcase.TestCase):
         Trivial test that just instantiates class
         """
         master = Master()
-    

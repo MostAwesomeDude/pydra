@@ -23,6 +23,7 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.master.node_manager import NodeManager
+from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class NodeManagerTestCase(unittest.TestCase):
     
@@ -38,5 +39,7 @@ class NodeManagerTestCase(unittest.TestCase):
         """
         manager = ModuleManager()
         module = NodeManager()
+        api = TestAPI()
+        manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)
