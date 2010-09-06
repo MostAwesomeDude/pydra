@@ -34,7 +34,7 @@ class WorkerConnectionManagerMixin():
     def setUp(self):
         """ Initialize a WorkerConnectionManager """
         self.wcm = worker_connection_manager.WorkerConnectionManager()
-        self.wcm._register(self.manager)
+        self.manager.register(self.wcm)
 
     def add_worker(self, main=False, finished=False):
         """ Helper Function for creating and connecting avatars """

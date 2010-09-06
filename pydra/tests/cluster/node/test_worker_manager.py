@@ -74,12 +74,8 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         WorkerConnectionManagerMixin.setUp(self)
         
         self.wm = worker_manager.WorkerManager()
-        self.wm._register(self.manager)
+        self.manager.register(self.wm)
         self.wm.master = RemoteProxy('master')
-        
-        # XXX until a solution to #192 is implemented, manually register
-        # the WORKER_CONNECTED listener
-        self.manager.register_listener('WORKER_CONNECTED', self.wm.run_task_delayed)
         
         # monkey patch Popen so that it does not actually start processes
         worker_manager.Popen = PopenProxyFactory()
@@ -96,6 +92,7 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         Verifies:
             * NODE_INITIALIZED is emitted
         """
+        self.manager.emit = False
         self.wm.init_node("avatar_name",'localhost',1234,'fake_key')
         self.manager.assertEmitted('NODE_INITIALIZED', self.wm.node_key)
 

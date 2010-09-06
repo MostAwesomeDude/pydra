@@ -29,8 +29,7 @@ from pydra.tests.proxies import RemoteProxy
 class MasterConnectionManagerMixin():
     def setUp(self):
         self.master_connection_manager = master_connection_manager.MasterConnectionManager()
-        self.master_connection_manager._register(self.manager)
-
+        self.manager.register(self.master_connection_manager)
 
 class MasterConnectionManager(unittest.TestCase, ModuleTestCaseMixIn, MasterConnectionManagerMixin):
     
