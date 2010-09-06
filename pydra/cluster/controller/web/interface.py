@@ -94,12 +94,11 @@ class FunctionResource(resource.Resource):
     results will similarly be returned as a JSON encoded string.  Errors will
     result in a 500 error with details within the JSON encoded string.
     """
-    def __init__(self, interface, function, params={}):
+    def __init__(self, interface, function, auth=True, include_user=False):
         self.interface = interface
         self.function = function
-        self.requires_auth = params['auth'] if 'auth' in params else True
-        self.include_user = params['include_user'] if 'include_user' in \
-                                                            params else False
+        self.requires_auth = auth
+        self.include_user = include_user
 
     def render(self, req):
         user = req.getSession().uid
@@ -242,7 +241,7 @@ class TwistedWebInterface(InterfaceModule):
                                   server.Site(root), contextFactory=context)
     
     
-    def wrap_interface(self, interface, params={}):
+    def wrap_interface(self, interface, **params):
         """
         Wraps all registered interfaces in an InterfaceResource.  This allows
         all interfaces to conform to twisted.web2 API.
