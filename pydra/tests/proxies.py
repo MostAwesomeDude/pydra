@@ -28,11 +28,11 @@ class ModuleManagerProxy(ModuleManager):
     """
     modules = []
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, testcase=None, emit=True, *args, **kwargs):
         self.signals = []
-        self.testcase = None
+        self.testcase = testcase
         super(ModuleManagerProxy, self).__init__(*args, **kwargs)
-        self.emit = True
+        self.emit = emit
 
     def emit_signal(self, signal, *args, **kwargs):
         self.signals.append((signal, args, kwargs))

@@ -19,14 +19,17 @@
 
 import unittest
 
-from pydra.cluster.module import Module
+from pydra.cluster.module import Module, ModuleManager
+from pydra.tests.proxies import ModuleManagerProxy
 
 
-class TestModule(module):
-    shared = ['foo']
-    
-class TestModule2(module):
-    shared = ['foo']
+class TestModule(Module):
+    _shared = ['foo']
+
+
+class TestModule2(Module):
+    _shared = ['foo']
+
 
 class ModuleTestCase(unittest.TestCase):
     
@@ -65,11 +68,16 @@ class ModuleTestCase(unittest.TestCase):
         module._register(manager)
         self.assertEqual(module.manager, manager)
         
-        module.deregister()
+        module._deregister()
         self.assertEqual(module.manager, None)
     
     def test_emit(self):
         """
         Tests emitting a signal
         """
+        manager = ModuleManagerProxy(testcase=self, emit=False)
+        module = TestModule()
+        manager.register(module)
         
+        module.emit('SIGNAL!')
+        manager.assertEmitted('SIGNAL!')

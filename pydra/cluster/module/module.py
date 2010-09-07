@@ -68,6 +68,7 @@ class Module(object):
         """
         Overridden to pass shared properties through to the manager
         """
+        
         if key not in ('__dict__', '_shared') and key in self._shared:
             val =  self.manager.get_shared(key)            
             return val
