@@ -26,9 +26,10 @@ class ModuleTestCaseMixIn():
     """
     
     def setUp(self):
-        self.manager = ModuleManagerProxy()
-        self.manager.testcase = self
-        self.callbacks = []
+        if not 'manager' in self.__dict__:
+            self.manager = ModuleManagerProxy()
+            self.manager.testcase = self
+            self.callbacks = []
     
     def assertCalled(self, remote, function, *args, **kwargs):
         return RemoteProxy.assertCalled(remote, self, function, *args, **kwargs)
