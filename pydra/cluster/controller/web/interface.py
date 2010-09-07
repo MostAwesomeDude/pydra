@@ -53,20 +53,20 @@ def authenticated(fn):
     def new(*args):
         interface = args[0]
         user = args[-1]
-
+        
         try:
             if interface.sessions[user]['auth']:
                 # user is authorized - execute original function
                 # strip authentication key from the args, its not needed by the
                 # interface and could cause errors.
                 return [fn(*(args[:-1]))]
-
+        
         except KeyError:
             pass # no session yet user must go through authentication
-
+        
         # user requires authorization
         return 0
-
+        
     return new
 
 
@@ -76,8 +76,9 @@ def deferred_response(response, request):
     function.  This simply json encodes the response and passes it to the
     request
     
-    @param response - response from deferred function
-    @param request - http request object from original call
+    :parameters:
+        response - response from deferred function
+        request - http request object from original call
     """
     request.write(simplejson.dumps(response))
     request.finish()
@@ -102,11 +103,12 @@ class FunctionResource(resource.Resource):
 
     def render(self, req):
         user = req.getSession().uid
-        args = req.args
-        args = simplejson.loads(args['args'][0]) if 'args' in args else []
-        kwargs = simplejson.loads(args['kwargs'][0]) if 'kwargs' in args else {}
+        req_args = req.args
+        args = simplejson.loads(req_args['args'][0]) if 'args' in req_args else []
+        kwargs = simplejson.loads(req_args['kwargs'][0]) if 'kwargs' in req_args else {}
+        
         password = args['pass'] if 'pass' in args else None
-
+        
         if not self.interface.sessions.has_key(user):
             # client has not authenticated yet.  Save session
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
@@ -114,7 +116,7 @@ class FunctionResource(resource.Resource):
                                              'expire':expiration, \
                                              'auth':False, \
                                             'challenge':None}
-
+        
         if self.interface.sessions[user]['auth'] or not self.requires_auth:
             # user is authorized - execute original function
             # strip authentication key from the args, its not needed by the
@@ -124,24 +126,24 @@ class FunctionResource(resource.Resource):
                     results = self.function(user, *args, **kwargs)
                 else:
                     results = self.function(*args, **kwargs)
-
+                
                 # if the method returns a deferred hook up
                 if isinstance(results, (Deferred)):
                     results.addCallback(deferred_response, req)
                     return server.NOT_DONE_YET
                 else:
                     return simplejson.dumps(results)
-
+            
             except Exception, e:
                 chaff, chaff, tb = sys.exc_info()
-
+                
                 buf = StringIO.StringIO()
                 traceback.print_tb(tb, limit=10, file=buf)
                 traces = buf.getvalue()
                 buf.close()
-
+                
                 sys.stdout.write(traces)
-
+                
                 logger.error('FunctionResource - exception in mapped function \
                              [%s] %s' % (self.function, e))
                 error = simplejson.dumps({'exception':str(e), \
@@ -149,7 +151,7 @@ class FunctionResource(resource.Resource):
                 req.setResponseCode(500)
                 req.setHeader("content-type", "text/html")
                 return error
-
+        
         # user requires authorization
         req.setResponseCode(401)
         req.setHeader("content-type", "text/html")
@@ -161,9 +163,22 @@ class InterfaceResource(resource.Resource):
     Resource that maps all registered interfaces to children of this resource
     """
     def __init__(self, module):
+        """
+        Instantiate resource
+        
+        :Parameters:
+            module: InterfaceModule containing registered interfaces to expose
+        """
         self.module = module
     
     def getChildWithDefault(self, path, request):
+        """
+        Get child resource for path and request.  Root path returns self.
+        
+        :parameters:
+            path: path to resource
+            request: http request
+        """
         if path == '':
             return self
         try:
@@ -172,6 +187,10 @@ class InterfaceResource(resource.Resource):
             return NoResource('method does not exist')
 
     def render(self, request):
+        """
+        renders this resource.  By default his returns a list of available
+        interfaces.  This should be used for things such as configuring clients.
+        """
         return simplejson.dumps(self.module._registered_interfaces.keys())
 
 
@@ -189,12 +208,12 @@ class TwistedWebInterface(InterfaceModule):
         self.pub_key, self.priv_key = load_crypto('%s/master.key' % \
                                         pydra_settings.RUNTIME_FILES_DIR)
         self.priv_key_encrypt = self.priv_key.encrypt
-
+        
         # setup security.  This just uses a default user/pw
         # the real authentication happens after the AMF client connects
         self.checker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
         self.checker.addUser("controller", "1234")
-
+        
         # Load crypto - The interface runs on the same server as the Master so
         # it can use the same key.  Theres no way with the AMF interface to
         # restrict access to localhost connections only.
@@ -214,16 +233,15 @@ class TwistedWebInterface(InterfaceModule):
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
             self.sessions[user] = {'code':password, 'expire':expiration, \
                                    'auth':False, 'challenge':None}
-
+        
         return True
-
 
     def get_controller_service(self, master):
         """
         constructs a twisted service for Controllers to connect to 
         """
         root = InterfaceResource(self)
-
+        
         #setup services
         from twisted.internet.ssl import DefaultOpenSSLContextFactory
         try:
@@ -236,10 +254,9 @@ class TwistedWebInterface(InterfaceModule):
                             ca-cert.pem.  Generate certificate with \
                             gen-cert.sh')
             sys.exit()
-
+        
         return internet.SSLServer(pydra_settings.CONTROLLER_PORT, \
                                   server.Site(root), contextFactory=context)
-    
     
     def wrap_interface(self, interface, **params):
         """
