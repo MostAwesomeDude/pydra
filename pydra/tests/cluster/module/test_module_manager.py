@@ -89,8 +89,8 @@ class ModuleManagerTestCase(unittest.TestCase):
         api = TestAPI()
         
         # verify everything is registered
-        manager.register_module(module)
-        manager.register_module(api)
+        manager.register(module)
+        manager.register(api)
         self.assert_(module in manager._modules)
         self.assert_('REMOTE0' in manager._remotes, manager._remotes)
         self.assert_('foo' in manager._remotes['REMOTE0'])
@@ -101,8 +101,8 @@ class ModuleManagerTestCase(unittest.TestCase):
         self.assert_(api in manager._interface_modules)
         
         # verify everything is deregistered
-        manager.deregister_module(module)
-        manager.deregister_module(api)
+        manager.deregister(module)
+        manager.deregister(api)
         self.assertFalse(module in manager._modules)
         self.assertFalse('REMOTE0' in manager._remotes, manager._remotes)
         self.assertFalse('SIGNAL0' in manager._listeners)
