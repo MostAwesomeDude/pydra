@@ -120,7 +120,11 @@ class ModuleManager(object):
             self._interfaces.remove((module, interface))
         
         for interface_module in self._interface_modules:
-            interface_module.deregister_interface(module, interface)
+            if isinstance(interface, (tuple, list)):
+                interface_module.register_interface(module, interface[0], \
+                                                    **interface[1])
+            else:
+                interface_module.register_interface(module, interface)
 
     def deregister_interface_module(self, module):
         """
@@ -132,6 +136,7 @@ class ModuleManager(object):
         """
         if module in self._interface_modules:
             self._interface_modules.remove(module)
+        module.deregister_all()
 
     def deregister_listener(self, signal, function):
         """
@@ -266,7 +271,11 @@ class ModuleManager(object):
         self._interfaces.append((module, interface))
         
         for interface_module in self._interface_modules:
-            interface_module.register_interface(module, interface)
+            if isinstance(interface, (tuple, list)):
+                interface_module.register_interface(module, interface[0], \
+                                                    **interface[1])
+            else:
+                interface_module.register_interface(module, interface)
 
     def register_interface_module(self, interface_module):
         """
@@ -279,7 +288,11 @@ class ModuleManager(object):
         self._interface_modules.append(interface_module)
         
         for module, interface in self._interfaces:
-            interface_module.register_interface(module, interface)
+            if isinstance(interface, (tuple, list)):
+                interface_module.register_interface(module, interface[0], \
+                                                    **interface[1])
+            else:
+                interface_module.register_interface(module, interface)
 
     def register_listener(self, signal, function):
         """

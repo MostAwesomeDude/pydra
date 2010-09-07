@@ -65,7 +65,16 @@ class InterfaceModule(Module):
                 name = name if name else interface.__name__
         return name
     
+    def deregister_all(self):
+        """
+        deregisters all interfaces
+        """
+        self._registered_interfaces = []
+    
     def deregister_interface(self, module, interface, name=None):
+        """
+        Deregisters an interface
+        """
         name = self._interface_name(module, interface, name)
         if name in self._registered_interfaces:
             del self._registered_interfaces[name]

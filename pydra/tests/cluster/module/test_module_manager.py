@@ -43,7 +43,7 @@ class Bar(Module):
         
         self._listeners={'SIGNAL0':self.foo}
         self._remotes=[('REMOTE0',self.foo)]
-        self._interfaces=[self.foo]
+        self._interfaces=[self.foo, (self.bar, {'name':'foo2'})]
         self._services=[self.foo]
     
     def foo(self, *args, **kwargs):
@@ -163,7 +163,8 @@ class ModuleManagerTestCase(unittest.TestCase):
             (module, module.foo),
             (module, module.bar),
             (module, 'xoo'),
-            (module, 'zoo')
+            (module, 'zoo'),
+            (module, (module.foo, {'name':'foo2'}))
         )
         
         interface_names = ('foo','bar','xoo','zoo')
