@@ -12,3 +12,5 @@ settings.py
 *.diff
 *.bak
 *.old
+_trial_temp
+build
