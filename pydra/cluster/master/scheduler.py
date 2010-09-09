@@ -246,6 +246,9 @@ class TaskScheduler(Module):
         """
         Adds a worker to the **idle pool**.
 
+        Since the active and idle pools are mutually exclusive, calling this
+        method with a worker in the active pool will remove it from that pool.
+
         Two possible invocation situations: 1) a new worker joins; and 2) a
         worker previously working on a work unit is returned to the pool.
         The latter case can be further categorized into several sub-cases, e.g.,
@@ -253,6 +256,7 @@ class TaskScheduler(Module):
         the third parameter, which is the final status of the task running on
         that worker.
         """
+
         with self._worker_lock:
             if worker_key in self._idle_workers:
                 logger.warn('Worker is already in the idle pool: %s' %
@@ -262,23 +266,23 @@ class TaskScheduler(Module):
         job = self._active_workers.get(worker_key, None)
         if job:
             task_instance = job.task_instance
-            
+
             if worker_key in self._main_workers:
                 # this is a main worker
                 if not job.local_workunit or task_status == STATUS_CANCELLED:
                     logger.info('Main worker:%s finishes the root task' %
                             worker_key)
-                    
+
                     status = STATUS_COMPLETE if task_status is None else task_status
                     task_instance.status = status
                     task_instance.completed = datetime.now()
                     task_instance.save()
-                    
+
                     with self._worker_lock:
                         self._main_workers.remove(worker_key)
                         del self._active_workers[worker_key]
                         self._idle_workers.append(worker_key)
-                    
+
                     with self._queue_lock:
                         del self._active_tasks[job.task_id]
                         if status in (STATUS_CANCELLED, STATUS_COMPLETE, STATUS_FAILED):
@@ -287,7 +291,7 @@ class TaskScheduler(Module):
                             for key in task_instance.waiting_workers:
                                 avatar = self.workers[key]
                                 avatar.remote.callRemote('release_worker')
-                            
+
                             t = [job.compute_score(), job]
                             if t in self._queue:
                                 self._queue.remove(t)
@@ -312,36 +316,29 @@ class TaskScheduler(Module):
                 self._idle_workers.append(worker_key)
 
         self._schedule()
- 
+
 
     def remove_worker(self, worker_key):
         """
-        Removes a worker from the idle pool.
-
-        @returns True if this operation succeeds and False otherwise.
+        Attempts to remove a worker from the idle pool.
         """
+
         with self._worker_lock:
-            job = self.get_worker_job(worker_key) 
-            if job is None:
-                try:
-                    self._idle_workers.remove(worker_key)
-                    logger.info('Worker:%s has been removed from the idle pool'
-                            % worker_key)
-                    return True
-                except ValueError:
-                    pass 
+            job = self.get_worker_job(worker_key)
+            if job is None and worker_key in self._idle_workers:
+                self._idle_workers.remove(worker_key)
+                logger.info('Worker:%s has been removed from the idle pool' %
+                    worker_key)
 
             elif job.subtask_key:
-                logger.warning('%s failed during task, returning work unit' % worker_key)
+                logger.warning('%s failed during task, returning work unit' %
+                    worker_key)
 
                 task_instance = job.task_instance
-                main_worker = self.workers.get(task_instance.worker, None)
 
-                if main_worker:
+                if task_instance.worker in self.workers:
                     # requeue failed work.
                     task_instance.queue_worker_request(job)
-                
-            return False
 
 
     def hold_worker(self, worker_key):
@@ -634,6 +631,7 @@ class TaskScheduler(Module):
             * there is a bug within the node or worker process.  All exceptions
             within user tasks should be caught and returned using send_results()
         """
+
         # return the worker to the pool
         self.add_worker(worker_key)
 
