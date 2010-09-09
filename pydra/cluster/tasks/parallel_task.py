@@ -52,8 +52,18 @@ class ParallelTask(Task):
 
         self.logger = logging.getLogger('root')
 
-    def __get_subtask(self):
-        """ getter for lazy instantiation of subtask property """
+    @property
+    def subtask(self):
+        """
+        Lazily provide the subtask on-demand.
+
+        Note that this will, in all likelihood, return None if requested
+        immediately after instantiation. Fill out the subtask fields first.
+
+        This property currently does not check to see whether the arguments to
+        the subtask have changed since the last request.
+        """
+
         if not self._subtask and self._subtask_class:
             args = self._subtask_args
             if not args:
@@ -67,12 +77,17 @@ class ParallelTask(Task):
             self._subtask = subtask
         return self._subtask
 
-    def __set_subtask(self, value):
-        """ setter for backward reference for subtask.parent """
-        if value:
-            value.parent = self
+    @subtask.setter
+    def subtask(self, value):
+        """
+        Standard setter.
 
-    subtask=property(__get_subtask, __set_subtask)
+        This setter adds this task as a parent to the provided subtask.
+        """
+
+        if value:
+            self._subtask = value
+            value.parent = self
 
     def _get_subtask(self, task_path, clean=False):
         """
