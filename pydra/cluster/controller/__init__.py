@@ -17,13 +17,18 @@ CONTROLLER_ERROR_MESSAGES = {
 
 
 class ControllerException(Exception):
+    """
+    Exception raised by a controller when a remote function has failed.  This
+    includes things such as http errors, nonexistant methods, remote errors,
+    etc.
+    """
     def __init__(self, code=CONTROLLER_ERROR_UNKNOWN):
         self.code = code
     
     def __repr__(self):
-        print 'ControllerException (%s): %s' (self.code, \
-                                        CONTROLLER_ERROR_MESSAGES[self.code])
-
+        return 'ControllerException (%s): %s' % (self.code, \
+                                    CONTROLLER_ERROR_MESSAGES[self.code])
+    
 
 class ControllerRemoteException(ControllerException):
     """
