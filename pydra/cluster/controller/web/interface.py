@@ -204,13 +204,8 @@ class TwistedWebInterface(InterfaceModule):
         InterfaceModule._register(self, manager)
         self._services = [self.get_controller_service]
         
-        #load rsa crypto
-        self.pub_key, self.priv_key = load_crypto('%s/master.key' % \
-                                        pydra_settings.RUNTIME_FILES_DIR)
-        self.priv_key_encrypt = self.priv_key.encrypt
-        
-        # setup security.  This just uses a default user/pw
-        # the real authentication happens after the AMF client connects
+        # XXX setup security.  This just uses a default user/pw
+        # the real authentication happens after the client connects
         self.checker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
         self.checker.addUser("controller", "1234")
         

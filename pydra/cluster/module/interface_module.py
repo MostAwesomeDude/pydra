@@ -23,6 +23,8 @@ import hashlib
 from twisted.internet import reactor
 from twisted.python.randbytes import secureRandom
 
+import pydra_settings
+from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.module.module import Module
 from pydra.cluster.module.attribute_wrapper import AttributeWrapper
 
@@ -42,7 +44,10 @@ class InterfaceModule(Module):
         self._registered_interfaces = {}
         self.sessions = {}
         self.key_size = key_size
-        self.priv_key_encrypt = key.encrypt if key else None
+        
+        key = key if key else '%s/master.key' % pydra_settings.RUNTIME_FILES_DIR
+        self.pub_key, self.priv_key = load_crypto(key)
+        self.priv_key_encrypt = self.priv_key.encrypt
 
     def _register(self, manager):
         Module._register(self, manager)
