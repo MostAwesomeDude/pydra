@@ -40,36 +40,6 @@ import logging
 logger = logging.getLogger('root')
 
 
-def authenticated(fn):
-    """
-    decorator for marking functions as requiring authentication.
-
-    this decorator will check the users authentication status and determine
-    whether or not to call the function.  This requires that the session id
-    (user) be passed with the method call.  The session_id arg isn't required
-    by the function itself and will be removed from the list of args sent to 
-    the real function
-    """
-    def new(*args):
-        interface = args[0]
-        user = args[-1]
-        
-        try:
-            if interface.sessions[user]['auth']:
-                # user is authorized - execute original function
-                # strip authentication key from the args, its not needed by the
-                # interface and could cause errors.
-                return [fn(*(args[:-1]))]
-        
-        except KeyError:
-            pass # no session yet user must go through authentication
-        
-        # user requires authorization
-        return 0
-        
-    return new
-
-
 def deferred_response(response, request):
     """
     Generic callback for web requests receive a Deferred from the mapped
@@ -208,28 +178,6 @@ class TwistedWebInterface(InterfaceModule):
         # the real authentication happens after the client connects
         self.checker = checkers.InMemoryUsernamePasswordDatabaseDontUse()
         self.checker.addUser("controller", "1234")
-        
-        # Load crypto - The interface runs on the same server as the Master so
-        # it can use the same key.  Theres no way with the AMF interface to
-        # restrict access to localhost connections only.
-        self.key_size=4096
-
-    def auth(self, user, password):
-        """
-        Authenticate a client session.  Sessions must initially be 
-        authenticated using strict security.  After that a session code can be
-        used to quickly authenticate.  The session will timeout after a few 
-        minutes and require the client to re-authenticate with a new session 
-        code.  This model ensures that session codes are never left active for
-        long periods of time.
-        """
-        if not self.sessions.has_key(user):
-            # client has not authenticated yet.  Save session
-            expiration = datetime.datetime.now() + datetime.timedelta(0,120)
-            self.sessions[user] = {'code':password, 'expire':expiration, \
-                                   'auth':False, 'challenge':None}
-        
-        return True
 
     def get_controller_service(self, master):
         """
