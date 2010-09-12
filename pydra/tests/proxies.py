@@ -102,15 +102,34 @@ class CallProxy():
     setting the enabled flag can enable/disable whether the method is actually
     executed when it is called, or just recorded.
     """
-    def __init__(self, func, enabled=True):
+    def __init__(self, func, enabled=True, response=None, **kwargs):
+        """
+        :parameters:
+            func: function to proxy
+            enabled: whether to call the wrapped function
+            kwargs: kwargs passed to all calls.  may be overwritten by kwargs
+                    passed to function
+        """
         self.func = func
         self.calls = []
         self.enabled = enabled
+        self.kwargs = kwargs
+        self.response = response
 
     def __call__(self, *args, **kwargs):
-        self.calls.append((args, kwargs))
+        """
+        call the wrapped function.  passing args and kwargs.  if default kwargs
+        have been set (self.kwargs) they will be combined with the kwargs passed
+        for this call taking preference
+        """
+        response = None
+        kwargs_ = {}
+        kwargs_.update(self.kwargs)
+        kwargs_.update(kwargs)
+        self.calls.append((args, kwargs_))
         if self.enabled:
-            return self.func(*args, **kwargs)
+            response = self.func(*args, **kwargs_)
+        return self.response if self.response != None else response
 
     def assertCalled(self, testcase, *args, **kwargs):
         """
