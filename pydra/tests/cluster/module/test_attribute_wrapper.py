@@ -19,6 +19,9 @@
 
 import unittest
 
+from pydra.tests import setup_test_environment
+setup_test_environment()
+
 from pydra.cluster.module import AttributeWrapper
 
 

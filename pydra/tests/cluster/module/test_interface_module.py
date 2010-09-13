@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 import time
 import unittest
 
+from pydra.tests import setup_test_environment
+setup_test_environment()
 
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.tests.cluster.module.test_module_manager import TestAPI, Bar
@@ -154,9 +156,7 @@ class InterfaceModuleTestCase(unittest.TestCase):
 class InterfaceModuleAuthenticationTestCase(unittest.TestCase):
     
     def setUp(self):
-        key_size = 4096
-        pub, priv = load_crypto('./keys', key_size=key_size)
-        self.api = TestAPI(key_size=key_size, key=priv)
+        self.api = TestAPI(key_size=4096, key='./keys')
     
     def tearDown(self):
         import os
