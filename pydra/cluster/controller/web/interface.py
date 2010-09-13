@@ -77,13 +77,10 @@ class FunctionResource(resource.Resource):
         args = simplejson.loads(req_args['args'][0]) if 'args' in req_args else []
         kwargs = simplejson.loads(req_args['kwargs'][0]) if 'kwargs' in req_args else {}
         
-        password = args['pass'] if 'pass' in args else None
-        
         if not self.interface.sessions.has_key(user):
             # client has not authenticated yet.  Save session
             expiration = datetime.datetime.now() + datetime.timedelta(0,120)
-            self.interface.sessions[user] = {'code':password, \
-                                             'expire':expiration, \
+            self.interface.sessions[user] = {'expire':expiration, \
                                              'auth':False, \
                                             'challenge':None}
         

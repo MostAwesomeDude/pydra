@@ -152,7 +152,6 @@ class FunctionResourceTestCase(unittest.TestCase, TwistedWebInterfaceTestCaseMix
         
         self.assert_('SESSION_ID' in api.sessions)
         session = api.sessions['SESSION_ID']
-        self.assert_('code' in session)
         self.assert_('expire' in session)
         self.assert_('auth' in session)
         self.assert_('challenge' in session)
@@ -251,8 +250,6 @@ class FunctionResourceTestCase(unittest.TestCase, TwistedWebInterfaceTestCaseMix
         request.finish.assertCalled(self)
         self.assertEqual([1,2,3], simplejson.loads(request.writer.getvalue()))
 
-    def test_password(self):
-        self.fail('wtf doess the password var do?')
 
 class InterfaceResourceTestCase(unittest.TestCase, TwistedWebInterfaceTestCaseMixin):
     
