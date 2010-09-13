@@ -205,7 +205,8 @@ class FunctionResourceTestCase(unittest.TestCase, TwistedWebInterfaceTestCaseMix
         renders a resource that throws an error
         
         Verifies:
-            returns 500
+            * returns 500
+            * response includes exception and stacktrace
         """
         api = self.twisted_web_interface
         request = HTTPRequestProxy()
@@ -214,6 +215,14 @@ class FunctionResourceTestCase(unittest.TestCase, TwistedWebInterfaceTestCaseMix
         with MuteStdout():
             response = resource.render(request)
         self.assertEqual(request.response_code, 500)
+        
+        self.assert_(isinstance(response,(str,)))
+        response = simplejson.loads(response)
+        self.assert_(isinstance(response, (dict,)), response)
+        self.assert_('exception' in response, response)
+        self.assert_('traceback' in response, response)
+        self.assert_(isinstance(response['exception'], (str,)), response)
+        self.assert_(isinstance(response['traceback'], (str,)), response)
     
     def test_render_with_args(self):
         """
