@@ -23,7 +23,6 @@ import time
 
 import logging
 logger = logging.getLogger('root')
-logger.setLevel(logging.DEBUG)
 
 from django import forms
 class TestTaskInput(forms.Form):
