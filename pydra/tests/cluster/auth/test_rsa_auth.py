@@ -25,6 +25,8 @@ import unittest
 from Crypto.PublicKey import RSA
 from twisted.python.randbytes import secureRandom
 
+from pydra.tests import setup_test_environment
+setup_test_environment()
 
 from pydra.cluster.auth.rsa_auth import RSAAvatar, RSAClient, generate_keys, load_crypto
 from pydra.tests.proxies import RemoteProxy, CallProxy
