@@ -28,6 +28,7 @@ from pydra.cluster.tasks import TaskNotFoundException, STATUS_STOPPED, \
 from pydra.cluster.tasks.parallel_task import ParallelTask
 from pydra.cluster.tasks.datasource.slicer import IterSlicer
 
+from pydra.tests.proxies import CallProxy
 from pydra.tests.cluster.tasks.proxies import WorkerProxy
 from pydra.tests.cluster.tasks.test_tasks import StandaloneTask
 
@@ -61,6 +62,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         self.pt = TestParallelTask()
         self.worker = WorkerProxy()
         self.pt.parent = self.worker
+        self.callback = CallProxy(None, False)
 
     def test_request_workers(self):
         """
@@ -107,6 +109,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         self.assertEqual(pt._workunit_count, 10, "Workunit count is not correct")
         self.assertEqual(len(pt._data_in_progress), 10, "in progress count is not correct")
         self.assertEqual(len(self.worker.request_worker.calls), 10, "request_worker was not called the correct number of times")
+        self.callback.assertNotCalled(self)
         
         for i in range(10):
             self.assertEqual(pt.status(), STATUS_RUNNING)
@@ -188,7 +191,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         Tests completing batched workunits
         """
         pt = self.pt
-        pt.start()
+        pt.start(callback=self.callback)
         return threads.deferToThread(self.verify_batch_complete)
 
 
