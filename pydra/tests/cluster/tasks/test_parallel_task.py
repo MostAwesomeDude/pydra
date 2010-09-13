@@ -101,6 +101,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
             * custom completion function is run
             * task is marked complete
             * task returns response
+            * callback is called
         """
         # sleep for 0.1 second to allow start thread to finish requesting workes
         time.sleep(.1)
@@ -120,13 +121,14 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         self.assert_(pt.complete, 'task is not marked complete via completion code')
         self.assertEquals(pt.status(), STATUS_COMPLETE, "Status is not reporting completed")
         self.assertEqual(len(self.worker.request_worker_release.calls), 1, "request_worker_release was not called the correct number of times")
+        self.callback.assertCalled(self)
 
     def test_parallel_work(self):
         """
         Tests requesting all work units
         """
         pt = self.pt
-        pt.start()
+        pt.start(callback=self.callback)
         return threads.deferToThread(self.verify_parallel_work)
 
     def test_worker_failed(self):
