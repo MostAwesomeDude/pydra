@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 import simplejson
 from heapq import heappush, heapify
 from twisted.internet import reactor, threads
-from twisted.internet.defer import Deferred, DeferredList
+from twisted.internet.defer import DeferredList
 
 from pydra.cluster.module import Module
 from pydra.cluster.tasks import *
@@ -117,10 +117,41 @@ class TaskScheduler(Module):
         ]
 
         # locks
-        self._lock = Lock()         # general lock        
-        self._worker_lock = Lock()  # lock for worker only transactions
-        self._queue_lock = Lock()   # lock for queue only transactions
-        self._fetch_status_lock = Lock() # lock for retrieving statuses
+        self._lock = Lock()
+        """
+        Coarse lock for the entire instance.
+
+        Appears to have limited usage; might be replacable later.
+        """
+
+        self._worker_lock = Lock()
+        """
+        Fine-grained lock.
+
+        This lock protects:
+
+         - `self._main_workers`
+         - `self._idle_workers`
+         - `self._active_workers`
+        """
+
+        self._queue_lock = Lock()
+        """
+        Fine-grained lock.
+
+        This lock protects:
+
+         - `self._queue`
+        """
+
+        self._fetch_status_lock = Lock()
+        """
+        Fine-grained lock.
+
+        This lock protects:
+
+         - `self._task_statuses`
+        """
 
         # task statuses
         self._task_statuses = {}
@@ -819,6 +850,7 @@ class TaskScheduler(Module):
         # will be set to deferred so all requests will return the new statuses
         # as soon as they are returned
         now = datetime.now()
+        # XXX Um. This lock either covers too much or not enough.
         with self._fetch_status_lock:
             if self._next_task_status_update > now:
                 return self._task_statuses
