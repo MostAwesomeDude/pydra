@@ -177,9 +177,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         elif success == False:
             s.run_task_failed(None, worker.name, subtask.subtask_key)
             
-        return response, subtask
-
-    
+        return response, subtask    
 
     def assertWorkerStatus(self, worker, status, scheduler, main=True):
         """
@@ -473,6 +471,15 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
         subtask_worker, subtask_id = subtask_response
         self.assert_(main_worker.name==subtask_worker, "Subtask is not started on main worker")
     
+    def test_advance_queue_subtask_reuse_waiting_worker(self):
+        """
+        Advance the queue when a worker is being held for reuse.
+        
+        Verifies:
+            * other worker should be chosen
+        """
+        raise NotImplementedError
+    
     def test_run_task_successful(self):
         """
         Verify that:
@@ -612,10 +619,16 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
         # validate task queue
         self.assertFalse(s._queue, s._queue)
         self.assertFalse(s._active_tasks, s._active_tasks)
-
+        
         self.assert_(task.status==STATUS_COMPLETE)
         self.assertWorkerStatus(worker, WORKER_IDLE, s)
         self.assertSchedulerAdvanced()
+    
+    def test_task_completed_subtasks_incomplete(self):
+        """
+        If a task is marked finished before it's subtasks complete
+        """
+        raise NotImplementedError
     
     def test_subtask_completed(self):
         """
@@ -648,7 +661,8 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
     
     def test_subtask_completed_zero_workunit_id(self):
         """
-        subtask on non-main_worker completes
+        subtask on non-main_worker completes but the workunit id is zero.  This
+        ensures that the None works correctly
         
         Verifies:
             * Worker is moved to waiting (held) pool
