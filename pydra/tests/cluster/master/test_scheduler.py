@@ -154,7 +154,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
             
         return response, worker, task
 
-    def queue_and_run_subtask(self, worker, success=None):
+    def queue_and_run_subtask(self, worker, success=None, workunit_key=1):
         """ Helper for setting up a running subtask """
         s = self.scheduler
         
@@ -165,7 +165,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         _schedule =s._schedule
         s._schedule = noop
         
-        subtask = s.request_worker(worker.name, 'test.foo.bar', 'args', 'workunit_key')
+        subtask = s.request_worker(worker.name, 'test.foo.bar', 'args', workunit_key)
         s._schedule = _schedule # reset
         self.assert_(subtask, "subtask was not created")
         response = _schedule()
@@ -635,7 +635,36 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
         subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
         # queue work on other worker
         subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
-        s.send_results(other_worker.name, ((subtask.subtask_key, 'results: woot!', False),))
+        s.send_results(other_worker.name, ((subtask.workunit, 'results: woot!', False),))
+        
+        # validate worker status
+        self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)
+        self.assertWorkerStatus(other_worker, WORKER_WAITING, s)
+        self.assert_(other_worker.name in task.waiting_workers)
+        
+        # validate main_worker is notified
+        self.assertCalled(main_worker, 'receive_results')
+        self.assertSchedulerAdvanced()
+    
+    def test_subtask_completed_zero_workunit_id(self):
+        """
+        subtask on non-main_worker completes
+        
+        Verifies:
+            * Worker is moved to waiting (held) pool
+            * Mainworker remains in active pool
+            * Mainworker is notified of completion
+            * Scheduler is advanced
+        """
+        s = self.scheduler
+        response, main_worker, task = self.queue_and_run_task(True)
+        task = self.scheduler.get_worker_job(main_worker.name)
+        other_worker = self.add_worker(True)
+        # queue work on mainworker
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True)
+        # queue work on other worker
+        subtask_response, subtask = self.queue_and_run_subtask(main_worker, True, 0)
+        s.send_results(other_worker.name, ((subtask.workunit, 'results: woot!', False),))
         
         # validate worker status
         self.assertWorkerStatus(main_worker, WORKER_ACTIVE, s, True)

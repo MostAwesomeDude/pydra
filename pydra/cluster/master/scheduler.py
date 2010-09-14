@@ -682,7 +682,7 @@ class TaskScheduler(Module):
             # if the task is still running
             if job:
                 task_instance = job.task_instance
-                if results[0][0]:
+                if results[0][0] != None:
                     if isinstance(job, (TaskInstance)):
                         job = job.local_workunit
                         task_instance.local_workunit = None
