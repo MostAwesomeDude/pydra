@@ -72,6 +72,30 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
             '%s.%s.TestTask' % (self.package, module),
         ]
 
+    def create_cache_entry(self, hash='FAKE_HASH'):
+        """
+        Creates fake entries in the internal tasks directory.
+        """
+        internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
+                    self.package, hash)
+        
+        makedirs(internal_folder)
+
+    def clear_cache(self):
+        """
+        Clears the entire cache of all packages.
+        """
+        shutil.rmtree(self.package_dir_internal, True)
+
+    def clear_package_cache(self):
+        """
+        Clears the test package's cache.
+        """
+        if os.path.exists(self.package_dir_internal):
+            for version in os.listdir(self.package_dir_internal):
+                shutil.rmtree(os.path.join(self.package_dir_internal,
+                        version), True)
+
 
 class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
 
@@ -134,30 +158,6 @@ class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
                 except OSError:
                     print "Warning: Directory %s still dirty" % directory
                     shutil.rmtree(directory)
-
-    def create_cache_entry(self, hash='FAKE_HASH'):
-        """
-        Creates fake entries in the internal tasks directory.
-        """
-        internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
-                    self.package, hash)
-        
-        makedirs(internal_folder)
-
-    def clear_cache(self):
-        """
-        Clears the entire cache of all packages.
-        """
-        shutil.rmtree(self.package_dir_internal, True)
-
-    def clear_package_cache(self):
-        """
-        Clears the test package's cache.
-        """
-        if os.path.exists(self.package_dir_internal):
-            for version in os.listdir(self.package_dir_internal):
-                shutil.rmtree(os.path.join(self.package_dir_internal,
-                        version), True)
 
     def test_trivial(self):
         """
