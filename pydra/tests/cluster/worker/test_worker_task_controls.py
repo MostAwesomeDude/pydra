@@ -23,9 +23,18 @@ setup_test_environment()
 
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.worker import WorkerTaskControls
-from pydra.tests.cluster.module.test_module_manager import TestAPI
 
-class WorkerTaskControlsTestCase(unittest.TestCase):
+from pydra.tests.cluster.module.test_module_manager import TestAPI
+from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+
+
+class WorkerTaskControlsTestCase(unittest.TestCase, ModuleTestCaseMixIn):
+    
+    def setUp(self):
+        ModuleTestCaseMixIn.setUp(self)
+        self.worker_task_controls = WorkerTaskControls()
+        self.manager.register(self.worker_task_controls)
+        self.assert_(self.worker_task_controls in self.manager._modules)
     
     def test_trivial(self):
         """
@@ -43,3 +52,90 @@ class WorkerTaskControlsTestCase(unittest.TestCase):
         manager.register(api)
         manager.register(module)
         self.assert_(module in manager._modules)
+    
+    def test_batch_complete(self):
+        raise NotImplementedError
+    
+    def test_run_batch(self):
+        raise NotImplementedError
+    
+    def test_run_task(self):
+        raise NotImplementedError
+    
+    def test_stop_task(self):
+        raise NotImplementedError
+    
+    def test_status(self):
+        """
+        retrieve status of worker
+        
+        Verifies:
+            * WORKER_STATUS_WORKING if working
+            * WORKER_STATUS_FINISHED if finished but results not sent
+            * WORKER_STATUS_IDLE otherwise
+        """
+        raise NotImplementedError
+    
+    def test_work_complete(self):
+        raise NotImplementedError
+    
+    def test_send_results_failed(self):
+        raise NotImplementedError
+    
+    def test_send_stop_failed(self):
+        raise NotImplementedError
+    
+    def test_send_successful(self):
+        raise NotImplementedError
+    
+    def test_task_status(self):
+        raise NotImplementedError
+    
+    def test_receive_results(self):
+        raise NotImplementedError
+    
+    def test_release_worker(self):
+        raise NotImplementedError
+    
+    def test_shutdown(self):
+        raise NotImplementedError
+    
+    def test_request_worker(self):
+        raise NotImplementedError
+    
+    def test_request_worker_release(self):
+        raise NotImplementedError
+    
+    def test_release_request_successful(self):
+        raise NotImplementedError
+    
+    def test_return_work(self):
+        raise NotImplementedError
+    
+    def test_get_worker(self):
+        """
+        Get the worker
+        
+        Verifies:
+            * always returns self
+        """
+        wtc = self.worker_task_controls
+        worker = wtc.get_worker()
+        self.assertEqual(worker, wtc)
+    
+    def test_get_key(self):
+        """
+        Get the task key
+        
+        Verifies:
+            * always returns None
+        """
+        wtc = self.worker_task_controls
+        key = wtc.get_key()
+        self.assertEqual(None, key)
+    
+    def test_retrieve_task_failed(self):
+        raise NotImplementedError
+    
+    def test_subtask_started(self):
+        raise NotImplementedError
