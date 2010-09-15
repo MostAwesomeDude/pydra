@@ -174,6 +174,15 @@ class CallProxy(object):
                 # simple match
                 testcase.assertFalse(calls, '%s was not called' % f)
         
+        def enable():
+            self.enabled = True
+        
+        def disable():
+            self.enabled = False
+        
+        def reset():
+            self.calls = []
+        
         def call_proxy (*args, **kwargs):
             #print "Entering", self, args, kwargs
             response = None
@@ -194,6 +203,10 @@ class CallProxy(object):
         call_proxy.assertCalled = assertCalled
         call_proxy.assertNotCalled = assertNotCalled
         call_proxy.calls = self.calls
+        call_proxy.disable = disable
+        call_proxy.enable = enable
+        call_proxy.reset = reset
+        call_proxy.func = self.func
         if self.func:
             call_proxy.__name__ = 'call_proxy(%s)' % self.func.__name__
         return call_proxy
