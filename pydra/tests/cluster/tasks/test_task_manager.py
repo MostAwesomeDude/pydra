@@ -221,8 +221,9 @@ class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
         self.task_manager.autodiscover()
         helper = RetrieveHelper()
         task_key = self.tasks[0]
-        self.task_manager.retrieve_task(task_key, None, helper.callback,
-            helper.errback)
+        deferred = self.task_manager.retrieve_task(task_key, None)
+        deferred.addCallbacks(helper.callback, helper.errback)
+
         self.assertEquals(task_key, helper.task_key,
             'Task_key does not match')
         self.assert_(helper.task_class, 'task class was not retrieved')
@@ -255,7 +256,7 @@ class RetrieveHelper():
         self.args = args
         self.kwargs = kw
 
-    def errback(self):
+    def errback(self, *args, **kwargs):
         print "Retrieval failed!"
 
 

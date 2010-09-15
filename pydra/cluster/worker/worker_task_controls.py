@@ -148,9 +148,9 @@ class WorkerTaskControls(Module):
             # batch exists if there is more than one workunit for the first
             # subtask OR if there is more than one workunit type.  no need to
             # check all of the subtasks
-            self.task_manager.retrieve_task(key, version, self.run_batch, \
-                                        self.retrieve_task_failed, args, \
-                                        workunits, main_worker, task_id)
+            deferred = self.task_manager.retrieve_task(key, version)
+            deferred.addCallback(self.run_batch, args, workunits, main_worker,
+                task_id)
         else:
             # no batch or single workunit in batch, can skip batching mechanism
             if workunits:
@@ -159,10 +159,18 @@ class WorkerTaskControls(Module):
                 workunit = workunits.values()[0][0]
             else:
                 workunit = subtask_key = None
-            self.task_manager.retrieve_task(key, version,
-                self._run_task, self.retrieve_task_failed, args, subtask_key,
-                workunit, main_worker, task_id, self.work_complete)
+            deferred = self.task_manager.retrieve_task(key, version)
+            deferred.addCallback(self._run_task_curried, args, subtask_key,
+                    workunit, main_worker, task_id, self.work_complete)
 
+    def _run_task_curried(self, task_tuple, *args, **kwargs):
+        """
+        Shim for the callbacks from `TaskManager.retrieve_task()`.
+        """
+
+        task_key, package_version, task_class, module_search_path = task_tuple
+        self._run_task(task_key, package_version, task_class,
+            module_search_path, *args, **kwargs)
 
     def _run_task(self, key, version, task_class, module_search_path, args={},
             subtask_key=None, workunit=None, main_worker=None, task_id=None,
@@ -191,6 +199,7 @@ class WorkerTaskControls(Module):
             self.__task = key
             self.__subtask = subtask_key
 
+        # XXX args is the wrong type
         # process args to make sure they are no longer unicode.  This is an
         # issue with the args coming through the django frontend.
         clean_args = {}
@@ -456,9 +465,6 @@ class WorkerTaskControls(Module):
         """
         return None    
 
-
-    def retrieve_task_failed(self, task_key, version, err):
-        pass
 
     def subtask_started(self, batch):
         """
