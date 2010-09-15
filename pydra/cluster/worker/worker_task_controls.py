@@ -55,6 +55,7 @@ class WorkerTaskControls(Module):
         'worker_key',
         'master',
         '_lock_connection',
+        'task_manager'
     ]
 
     def __init__(self):
@@ -69,11 +70,7 @@ class WorkerTaskControls(Module):
             ('MASTER', self.return_work),
             ('MASTER', self.subtask_started)
         ]
-
-        self._friends = {
-            'task_manager' : TaskManager,
-        }
-
+        
         self._lock = Lock()
         self._task = None
         self._task_instance = None
@@ -81,7 +78,7 @@ class WorkerTaskControls(Module):
         self._stop_flag = None
         self._subtask = None
         self._batch = None
-
+        
         # shutdown tracking
         self._pending_releases = 0
         self._pending_shutdown = False
@@ -180,7 +177,6 @@ class WorkerTaskControls(Module):
         """
         logger.info('RunTask:  key=%s  args=%s  sub=%s  w=%s  main=%s' \
             % (key, '--', subtask_key, workunit, main_worker))
-
         # Register task with worker
         with self._lock:
             if not key:

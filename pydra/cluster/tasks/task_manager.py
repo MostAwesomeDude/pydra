@@ -59,6 +59,7 @@ class TaskManager(Module):
 
     _shared = [
         'get_task',
+        'task_manager'
     ]
 
     autodiscover_call = None
@@ -128,6 +129,11 @@ class TaskManager(Module):
         if self.scan_interval:
             self.autodiscover_call = LoopingCall(self.autodiscover)
 
+    def _register(self, manager):
+        super(TaskManager, self)._register(manager)
+        
+        # XXX share reference to self as task_manager
+        self.task_manager = self
 
     def processTask(self, task, parent=False):
         """
@@ -468,6 +474,7 @@ class TaskManager(Module):
                     self._task_callbacks[pkg_name].append((callback,
                         callback_args, callback_kwargs))
                 task_class = pkg.tasks.get(task_key, None)
+                
                 if task_class and (version is None or pkg.version == version):
                     module_path, cycle = self._compute_module_search_path(
                             pkg_name)
