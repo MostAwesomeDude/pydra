@@ -120,8 +120,8 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         self.scheduler._register(self.manager)
         
         # intercept _schedule so that its calls can be recorded
-        self.scheduler._schedule_real = self.scheduler._schedule
-        self.scheduler._schedule = CallProxy(self.scheduler._schedule)
+        if not hasattr(scheduler.TaskScheduler._schedule, 'func'):
+            scheduler.TaskScheduler._schedule = CallProxy(scheduler.TaskScheduler._schedule)
         
         # hook the threads modules in the scheduling module so we can intercept
         # any calls to deferToThread()
@@ -143,6 +143,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         s = self.scheduler
         worker = self.add_worker(True)
         task = s._queue_task('foo.bar')
+        s._schedule.enable()
         response = s._schedule()
         
         # complete start sequence for task, or fail it.  if no flag is given
@@ -158,17 +159,12 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         """ Helper for setting up a running subtask """
         s = self.scheduler
         
-        # hook _schedule so it isn't called immediately from request_worker
-        # reset it after request_worker has been called
-        def noop():
-            pass
-        _schedule =s._schedule
-        s._schedule = noop
-        
+        s._schedule.disable()
         subtask = s.request_worker(worker.name, 'test.foo.bar', 'args', workunit_key)
-        s._schedule = _schedule # reset
         self.assert_(subtask, "subtask was not created")
-        response = _schedule()
+        
+        s._schedule.enable()
+        response = s._schedule()
         
         # complete start sequence for subtask, or fail it.  if no flag is given
         # subtask will be left waiting for response from remote worker.
@@ -215,7 +211,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
             "No Attempt was made to advance the scheduler")
         
         # clear calls
-        self.scheduler._schedule.calls = []
+        self.scheduler._schedule.reset()
         self.threads_.calls = []
 
     def tearDown(self):
@@ -345,7 +341,7 @@ class TaskScheduler_Scheduling(TaskScheduler_Base):
         """
         s = self.scheduler
         response, worker, task = self.queue_and_run_task(True)
-        s._schedule.enabled = False
+        s._schedule.disable()
         task = s.get_worker_job(worker.name)
         s.request_worker(worker.name, 'test.foo.bar', 'args', 'workunit_key')
         
