@@ -334,8 +334,8 @@ class TaskManager(Module):
                 while len(callbacks):
                     task_key, d = callbacks.pop(0)
                     if cycle:
-                        d.errback(task_key, pkg.version,
-                            'Cycle detected in dependency')
+                        d.errback((task_key, pkg.version,
+                            'Cycle detected in dependency'))
                     else:
                         d.callback((task_key, pkg.version, pkg.tasks[task_key],
                                 module_path))
