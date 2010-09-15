@@ -43,20 +43,19 @@ class TestTask(Task):
     pass
 """
 
-class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
-
+class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
     def setUp(self):
         ModuleTestCaseMixIn.setUp(self)
-
+        
         # Munge both task directories to be under our control and also
         # different for each unit test.
         pydra_settings.TASKS_DIR = tempfile.mkdtemp()
         pydra_settings.TASKS_DIR_INTERNAL = tempfile.mkdtemp()
-
+        
         # Lazy-inited, with no autodiscovery.
         self.task_manager = TaskManager(None, lazy_init=True)
-        self.task_manager._register(self.manager)
-
+        self.manager.register(self.task_manager)
+        
         # Make a test package.
         self.package = 'test'
         module = "testmodule"
@@ -67,16 +66,22 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         makedirs(self.package_dir)
         with open(os.path.join(self.package_dir, "%s.py" % module), "w") as f:
             f.write(test_string)
-
+        
         # Save test package information for later.
         self.tasks = [
             '%s.%s.TestTask' % (self.package, module),
         ]
+
+
+class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
+
+    def setUp(self):
+        TaskManagerTestCaseMixIn.setUp(self)
+        
         self.completion = {}
         for task in self.tasks:
             self.completion[task] = None
-
-
+        
         self.task_instances = []
         for task in self.tasks:
             #queued tasks
@@ -84,14 +89,14 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
             task_instance.task_key=task
             task_instance.save()
             self.task_instances.append(task_instance)
-
+            
             #running tasks
             task_instance = TaskInstance()
             task_instance.task_key=task
             task_instance.started = datetime.now()
             task_instance.save()
             self.task_instances.append(task_instance)
-
+            
             #finished tasks
             task_instance = TaskInstance()
             task_instance.task_key=task
@@ -101,7 +106,7 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
             task_instance.save()
             self.completion[task] = completed_time
             self.task_instances.append(task_instance)
-
+            
             #failed tasks
             task_instance = TaskInstance()
             task_instance.task_key=task
@@ -110,15 +115,14 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
             task_instance.save()
             self.task_instances.append(task_instance)
 
-
     def tearDown(self):
         for task in self.task_instances:
             task.delete()
         self.clear_cache()
-
+        
         os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
         os.rmdir(self.package_dir)
-
+        
         for directory in (pydra_settings.TASKS_DIR,
             pydra_settings.TASKS_DIR_INTERNAL):
             try:
@@ -131,23 +135,20 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
                     print "Warning: Directory %s still dirty" % directory
                     shutil.rmtree(directory)
 
-
     def create_cache_entry(self, hash='FAKE_HASH'):
         """
         Creates fake entries in the internal tasks directory.
         """
         internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
                     self.package, hash)
-
+        
         makedirs(internal_folder)
-
 
     def clear_cache(self):
         """
         Clears the entire cache of all packages.
         """
         shutil.rmtree(self.package_dir_internal, True)
-
 
     def clear_package_cache(self):
         """
@@ -158,13 +159,11 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
                 shutil.rmtree(os.path.join(self.package_dir_internal,
                         version), True)
 
-
     def test_trivial(self):
         """
         Test the basic init and teardown of the test harness and TaskManager.
         """
         pass
-
 
     def test_listtasks(self):
         """
@@ -173,18 +172,16 @@ class TaskManagerTest(unittest.TestCase, ModuleTestCaseMixIn):
         self.task_manager.autodiscover()
         tasks = self.task_manager.list_tasks()
         self.assertEqual(len(tasks), 1)
-
+        
         for task in self.tasks:
             recorded_time = self.completion[task]
             recorded_time = time.mktime(recorded_time.timetuple()) if recorded_time else None
             list_time = tasks[task]['last_run']
             self.assertEqual(recorded_time, list_time, "Completion times for task don't match: %s != %s" % (recorded_time, list_time))
 
-
     def test_init_cache_empty_cache(self):
         self.task_manager.init_task_cache()
         self.assertEqual(len(self.task_manager.registry), 0, 'Cache is empty, but registry is not')
-
 
     def test_init_cache(self):
         self.create_cache_entry()
@@ -251,6 +248,7 @@ class RetrieveHelper():
 
     def errback(self):
         print "Retrieval failed!"
+
 
 if __name__ == "__main__":
     unittest.main()
