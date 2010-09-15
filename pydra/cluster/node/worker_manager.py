@@ -312,8 +312,7 @@ class WorkerManager(Module):
                 (worker.key, worker.version, None, None),
                 worker.worker_key, worker.args, worker.workunits,
                 worker.main_worker, worker.task_id)
-            deferred.addCallback(sent_deferred.callback)
-            # XXX chainmeplx
+            deferred.chainDeferred(sent_deferred)
 
     def send_results(self, worker_key, results, *args, **kwargs):
         """
