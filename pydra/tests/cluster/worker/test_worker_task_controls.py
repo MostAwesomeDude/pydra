@@ -24,17 +24,22 @@ setup_test_environment()
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.worker import WorkerTaskControls
 
+
+from pydra.tests.cluster.tasks.test_task_manager import TaskManagerTestCaseMixIn
 from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
 
 
-class WorkerTaskControlsTestCase(unittest.TestCase, ModuleTestCaseMixIn):
+class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
     
     def setUp(self):
-        ModuleTestCaseMixIn.setUp(self)
+        TaskManagerTestCaseMixIn.setUp(self)
+        self.create_cache_entry()
+        self.task_manager.autodiscover()
         self.worker_task_controls = WorkerTaskControls()
         self.manager.register(self.worker_task_controls)
         self.assert_(self.worker_task_controls in self.manager._modules)
+    
     
     def test_trivial(self):
         """
@@ -60,6 +65,27 @@ class WorkerTaskControlsTestCase(unittest.TestCase, ModuleTestCaseMixIn):
         raise NotImplementedError
     
     def test_run_task(self):
+        """
+        run a task
+        
+        Verifies:
+            * task is started
+        """
+        wtc = self.worker_task_controls
+        tm = self.task_manager
+        
+        key = self.tasks[0]
+        version = 'FAKE_HASH'
+        
+        ret = wtc.run_task(key, version)
+        
+        self.assertEqual(wtc._task, key)
+        self.assert_(wtc._task_instance)
+    
+    def test_run_task_no_key(self):
+        raise NotImplementedError
+    
+    def test_run_subtask(self):
         raise NotImplementedError
     
     def test_stop_task(self):
