@@ -16,6 +16,8 @@
     You should have received a copy of the GNU General Public License
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
+import types
+
 from twisted.internet.defer import Deferred
 
 from pydra.cluster.module.module_manager import ModuleManager
@@ -95,7 +97,7 @@ class ThreadsProxy():
         return False
 
 
-class CallProxy():
+class CallProxy(object):
     """ Proxy for a method that will record calls to it.  To use this class
     monkey patch the original method using an instance of this class
     
@@ -115,52 +117,117 @@ class CallProxy():
         self.enabled = enabled
         self.kwargs = kwargs
         self.response = response
+        
+        if func:
+            self.argumented_call = self.create_matching_function(func)
 
-    def __call__(self, *args, **kwargs):
+    def __new__(cls, *args, **kwargs):
+        # create instance of class to hold args, technically
+        # we could just return the inner function here but it might
+        # still be a good idea to drop this whole __new__ business
+        instance = super(CallProxy, cls).__new__(cls)
+        instance.__init__(*args, **kwargs)
+       
+        # return wrapped function
+        return instance.create_function()
+        
+    def create_function(self):
         """
-        call the wrapped function.  passing args and kwargs.  if default kwargs
-        have been set (self.kwargs) they will be combined with the kwargs passed
-        for this call taking preference
+        Creates an inner function that wraps the original call.  The inner
+        function will:
+            * have access to the callProxy instance by referencing self.
+            * have additional functions monkey patched onto it so that it may
+            perform actions such as assertCalled()
         """
-        response = None
-        kwargs_ = {}
-        kwargs_.update(self.kwargs)
-        kwargs_.update(kwargs)
-        self.calls.append((args, kwargs_))
-        if self.enabled:
-            response = self.func(*args, **kwargs_)
-        return self.response if self.response != None else response
-
-    def assertCalled(self, testcase, *args, **kwargs):
-        """
-        Assertion function for checking if a callproxy was called
-        """
-        if args or kwargs:
-            #detailed match
-            for t in self.calls:
-                args_, kwargs_ = t
-                if args_==args and kwargs_==kwargs:
-                    return t
-            testcase.fail("exact call (%s) did not occur: %s" % (self.func, self.calls))
+        def assertCalled(testcase, *args, **kwargs):
+            """
+            Assertion function for checking if a callproxy was called
+            """
+            f = self.func
+            calls = self.calls
+            if args or kwargs:
+                #detailed match
+                for t in calls:
+                    args_, kwargs_ = t
+                    if args_==args and kwargs_==kwargs:
+                        return t
+                testcase.fail("exact call (%s) did not occur: %s" % (f, calls))
+                
+            else:
+                # simple match
+                testcase.assert_(calls, "%s was not called: %s" % (f, calls))
+                return calls[0]
+    
+        def assertNotCalled(testcase, *args, **kwargs):
+            """
+            Assertion function for checking if callproxy was not called
+            """
+            f = self.func
+            calls = self.calls
+            if args or kwargs:
+                #detailed match
+                for t in calls:
+                    args_, kwargs_ = t
+                    if args_==args and kwargs_==kwargs:
+                        testcase.fail("exact call (%s) was made: %s" % (f, calls))
+            else:
+                # simple match
+                testcase.assertFalse(calls, '%s was not called' % f)
+        
+        def call_proxy (*args, **kwargs):
+            #print "Entering", self, args, kwargs
+            response = None
+            kwargs_ = {}
+            kwargs_.update(self.kwargs)
+            kwargs_.update(kwargs)
+            self.calls.append((args, kwargs_))
             
-        else:
-            # simple match
-            testcase.assert_(self.calls, "%s was not called: %s" % (self.func, self.calls))
-            return self.calls[0]
+            if self.enabled:
+                response = self.func(*args, **kwargs_)
+            elif self.func:
+                # call argumented call, this ensures the args are checked even when
+                # the real function isn't actually called
+                self.argumented_call(*args, **kwargs)
+            #print "Exited", self.func
+            return self.response if self.response != None else response
+            
+        call_proxy.assertCalled = assertCalled
+        call_proxy.assertNotCalled = assertNotCalled
+        call_proxy.calls = self.calls
+        if self.func:
+            call_proxy.__name__ = 'call_proxy(%s)' % self.func.__name__
+        return call_proxy
 
-    def assertNotCalled(self, testcase, *args, **kwargs):
+    def create_matching_function(self, func):
         """
-        Assertion function for checking if callproxy was not called
+        constructs a function with a method signature that matches the
+        function that is passed in.  The resulting function does not actually
+        do anything.  It is only used for verifying arguments to the call match.
+        
+        The function is constructed from a combination of properties from an
+        inner function and the function passed in.
         """
-        if args or kwargs:
-            #detailed match
-            for t in self.calls:
-                args_, kwargs_ = t
-                if args_==args and kwargs_==kwargs:
-                    testcase.fail("exact call (%s) was made: %s" % (self.func, self.calls))
-        else:
-            # simple match
-            testcase.assertFalse(self.calls, '%s was not called' % self.func)
+        def base(): pass
+        
+        base_code = base.__code__
+        code = func.__code__
+        
+        new_code = types.CodeType( \
+            code.co_argcount, \
+            code.co_nlocals, \
+            base_code.co_stacksize, \
+            code.co_flags, \
+            base_code.co_code, \
+            base_code.co_consts, \
+            base_code.co_names, \
+            code.co_varnames, \
+            base_code.co_filename, \
+            func.__name__, \
+            base_code.co_firstlineno, \
+            base_code.co_lnotab)
+         
+        return types.FunctionType(new_code, func.func_globals, \
+                                  func.__name__, func.func_defaults)
 
 
 class RemoteProxy():
