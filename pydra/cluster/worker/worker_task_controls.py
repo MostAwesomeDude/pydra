@@ -75,18 +75,16 @@ class WorkerTaskControls(Module):
         }
 
         self._lock = Lock()
-        self.__task = None
-        self.__task_instance = None
-        self.__results = None
-        self.__stop_flag = None
-        self.__subtask = None
-        self.__workunit = None
-        self.__results = None
-        self.__batch = None
+        self._task = None
+        self._task_instance = None
+        self._results = None
+        self._stop_flag = None
+        self._subtask = None
+        self._batch = None
 
         # shutdown tracking
-        self.__pending_releases = 0
-        self.__pending_shutdown = False
+        self._pending_releases = 0
+        self._pending_shutdown = False
 
 
     def batch_complete(self):
@@ -95,7 +93,7 @@ class WorkerTaskControls(Module):
         Master via Node.  The results are a structure containing the actual size
         of the batch, and results or errors for all workunits within the batch
         """
-        if self.__task_instance.STOP_FLAG:
+        if self._task_instance.STOP_FLAG:
             # If stop flag is set for either the main task or local task
             # then ignore any results and stop the task
             with self._lock_connection:
@@ -105,14 +103,14 @@ class WorkerTaskControls(Module):
                     deferred.addErrback(self.send_stopped_failed)
 
                 else:
-                    self.__stop_flag = True
+                    self._stop_flag = True
 
         else:
             #completed normally
             # if the master is still there send the results
             with self._lock_connection:
                 if self.master:
-                    deferred = self.master.callRemote("send_results", self.__results)
+                    deferred = self.master.callRemote("send_results", self._results)
                     deferred.addCallback(self.send_successful)
                     deferred.addErrback(self.send_results_failed)
 
@@ -123,21 +121,21 @@ class WorkerTaskControls(Module):
         Creates the batch iterator which will yield arguments for each
         run_task call, and then starts the batch cycle
         """
-        self.__results = []
-        self.__batch = BatchIterator(workunits, key, version, task_class, \
+        self._results = []
+        self._batch = BatchIterator(workunits, key, version, task_class, \
                                 module_search_path, args, main_worker, \
                                 task_id, self.batched_work_complete)
         self.run_next()
 
     def run_next(self):
         """
-        Runs the next subtask in self.__batch which is an iterator that
+        Runs the next subtask in self._batch which is an iterator that
         flattens the subtask/workunit structure into a list of subtask/workunit
         combinations.  If there are no more workunits in the iterator then
         batch_complete is called to finish this task
         """
         try:
-            self._run_task(*self.__batch.next())
+            self._run_task(*self._batch.next())
         except StopIteration:
             self.batch_complete()
 
@@ -188,8 +186,8 @@ class WorkerTaskControls(Module):
             if not key:
                 return "FAILURE: NO TASK KEY SPECIFIED"
             # save what worker is running
-            self.__task = key
-            self.__subtask = subtask_key
+            self._task = key
+            self._subtask = subtask_key
 
         # process args to make sure they are no longer unicode.  This is an
         # issue with the args coming through the django frontend.
@@ -201,16 +199,16 @@ class WorkerTaskControls(Module):
 
         # only create a new task instance if this is the root task.  Otherwise
         # subtasks will be created within the structure of the task.
-        if not self.__task_instance:
-            self.__task_instance = task_class()
-            self.__task_instance.parent = self
+        if not self._task_instance:
+            self._task_instance = task_class()
+            self._task_instance.parent = self
             if not subtask_key:
-                self.__task_instance.logger = get_task_logger(self.worker_key, \
+                self._task_instance.logger = get_task_logger(self.worker_key, \
                                                                 task_id)
 
         # start the task.  If this is actually a subtask, then the task is
         # responsible for starting the subtask instead of the main task
-        return self.__task_instance.start(clean_args, subtask_key, workunit,
+        return self._task_instance.start(clean_args, subtask_key, workunit,
                         task_id, \
                         callback=callback,
                         callback_args = {'workunit':workunit},
@@ -223,8 +221,8 @@ class WorkerTaskControls(Module):
         Stops the current task.
         """
         logger.info('Received STOP command')
-        if self.__task_instance:
-            self.__task_instance._stop()
+        if self._task_instance:
+            self._task_instance._stop()
             
 
     def status(self):
@@ -232,12 +230,12 @@ class WorkerTaskControls(Module):
         Return the status of the current task if running, else None
         """
         # if there is a task it must still be running
-        if self.__task:
-            return (WORKER_STATUS_WORKING, self.__task, self.__subtask)
+        if self._task:
+            return (WORKER_STATUS_WORKING, self._task, self._subtask)
 
         # if there are results it was waiting for the master to retrieve them
-        if self.__results:
-            return (WORKER_STATUS_FINISHED, self.__task, self.__subtask)
+        if self._results:
+            return (WORKER_STATUS_FINISHED, self._task, self._subtask)
 
         return (WORKER_STATUS_IDLE,)
 
@@ -257,7 +255,7 @@ class WorkerTaskControls(Module):
                         worker
         @param failed - was there an exception thrown in the task
         """
-        if self.__task_instance.STOP_FLAG:
+        if self._task_instance.STOP_FLAG:
             # If stop flag is set for either the main task or local task
             # then ignore any results and stop the task
             return
@@ -268,7 +266,7 @@ class WorkerTaskControls(Module):
 
         # store results
         with self._lock:
-            self.__results.append((workunit, results, failed))
+            self._results.append((workunit, results, failed))
 
         self.run_next()
     
@@ -288,7 +286,7 @@ class WorkerTaskControls(Module):
         if failed:
             results = results.__str__()
 
-        if self.__task_instance.STOP_FLAG:
+        if self._task_instance.STOP_FLAG:
             # If stop flag is set for either the main task or local task
             # then ignore any results and stop the task
             with self._lock_connection:
@@ -298,7 +296,7 @@ class WorkerTaskControls(Module):
                     deferred.addErrback(self.send_stopped_failed)
 
                 else:
-                    self.__stop_flag = True
+                    self._stop_flag = True
 
         else:
             #completed normally
@@ -312,7 +310,7 @@ class WorkerTaskControls(Module):
 
                 # master disapeared, hold results until it requests them
                 else:
-                    self.__results = results
+                    self._results = results
 
 
     def send_results_failed(self, results):
@@ -334,7 +332,7 @@ class WorkerTaskControls(Module):
             else:
                 #nope really isn't connected.  set flag.  even if connection is in progress
                 #this thread has the lock and reconnection cant finish till we release it
-                self.__results = results
+                self._results = results
 
 
     def send_stopped_failed(self, results):
@@ -355,7 +353,7 @@ class WorkerTaskControls(Module):
             else:
                 #nope really isn't connected.  set flag.  even if connection is in progress
                 #this thread has the lock and reconnection cant finish till we release it
-                self.__stop_flag = True
+                self._stop_flag = True
 
 
     def send_successful(self, results):
@@ -371,8 +369,8 @@ class WorkerTaskControls(Module):
         """
         Returns status of task this task is performing
         """
-        if self.__task_instance:
-            return self.__task_instance.progress()
+        if self._task_instance:
+            return self._task_instance.progress()
 
 
     def receive_results(self, worker_key, results, subtask_key):
@@ -380,9 +378,9 @@ class WorkerTaskControls(Module):
         Function called to make the subtask receive the results processed by
         another worker.  This call is ignored if STOP flag is already set.
         """
-        if not self.__task_instance.STOP_FLAG:
+        if not self._task_instance.STOP_FLAG:
             logger.info('received REMOTE results for: %s' % subtask_key)
-            subtask = self.__task_instance.get_subtask(subtask_key.split('.'))
+            subtask = self._task_instance.get_subtask(subtask_key.split('.'))
             for key, result, failed in results:
                 if failed:
                     continue
@@ -399,10 +397,10 @@ class WorkerTaskControls(Module):
 
     def shutdown(self):
         with self._lock:
-            if self.__pending_releases:
-                self.__pending_shutdown = True
+            if self._pending_releases:
+                self._pending_shutdown = True
                 return
-
+        
         logger.debug('Released, shutting down')
         self.emit('WORKER_FINISHED')
         reactor.stop()
@@ -423,7 +421,7 @@ class WorkerTaskControls(Module):
         which worker is optimal to release if there is a choice.
         """
         with self._lock:
-            self.__pending_releases += 1
+            self._pending_releases += 1
             deferred = self.master.callRemote('request_worker_release')
             deferred.addCallback(self.release_request_successful)
 
@@ -433,13 +431,13 @@ class WorkerTaskControls(Module):
         A worker release request was successful
         """
         with self._lock:
-            self.__pending_releases -= 1
-            if self.__pending_shutdown and self.__pending_releases == 0:
+            self._pending_releases -= 1
+            if self._pending_shutdown and self._pending_releases == 0:
                 reactor.callLater(self.shutdown)
 
 
     def return_work(self, subtask_key, workunit_key):
-        subtask = self.__task_instance.get_subtask(subtask_key.split('.'))
+        subtask = self._task_instance.get_subtask(subtask_key.split('.'))
         subtask.parent._worker_failed(workunit_key)
 
 
@@ -469,4 +467,4 @@ class WorkerTaskControls(Module):
         @param id - id for workunit.
         """
         for args in BatchIteratorNoArgs(batch):
-            self.__task_instance.subtask_started(*args)
+            self._task_instance.subtask_started(*args)
