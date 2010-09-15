@@ -19,7 +19,7 @@
 from __future__ import with_statement
 
 from collections import defaultdict
-from threading import Lock, RLock
+from threading import RLock
 import os
 import shutil
 import time
@@ -125,7 +125,6 @@ class TaskManager(Module):
         """
 
         self._lock = RLock()
-        self._callback_lock = Lock()
 
         self.__initialized = False
 
