@@ -136,9 +136,7 @@ class WebControllerFunctionTestCase(unittest.TestCase):
         """
         error = urllib2.HTTPError(None, 401, None, None, None)
         self.api.opener.raise_=error
-        
-        WebControllerFunction._authenticate = CallProxy(WebControllerFunction._authenticate, False)
-        
+        self.func._authenticate = CallProxy(self.func._authenticate, False)
         self.func()
         self.func._authenticate.assertCalled(self)
     
