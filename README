@@ -8,21 +8,27 @@ work required for distributed computations.
 For more documentation on how to use and develop applications for Pydra,
 please see our website, http://pydra-project.osuosl.org/.
 
+Requirements
+------------
+
+Pydra depends upon Python 2.5, Twisted 9.0, and Django.
+
 Installation
-============
+------------
 
 Installation is relatively simple.
 
- #. Update paths in pydra/config.py if needed
- #. Run setup.py in this folder.  requires root
- #. Set ownership/groups appropriately for these:
+ #. Update paths in pydra/config.py if absolutely needed. By default,
+    /etc/pydra is used for configuration.
+ #. Run setup.py as root.
+ #. Set ownership/groups appropriately for these folders:
 
     * config.RUNTIME
     * config.RUNTIME_FILES_DIR
     * config.LOGGING_DIR
- #. Update CONFIG_DIR/pydra_settings.py to contain your database information
- #. Create database with: pydra_manage syncdb
- #. Start pydra with pydra_master and pydra_node
+ #. Update CONFIG_DIR/pydra_settings.py to contain your database information.
+ #. Create the database tables with ``$ scripts/pydra_manage syncdb``
+ #. Start pydra with ``$ scripts/pydra_master`` and ``$ scripts/pydra_node``
 
 Notes:
 
