@@ -24,7 +24,6 @@ from twisted.internet import reactor
 
 from pydra.cluster.constants import *
 from pydra.cluster.module import Module
-from pydra.cluster.tasks.task_manager import TaskManager
 from pydra.logs import get_task_logger
 
 # init logging
@@ -206,10 +205,9 @@ class WorkerTaskControls(Module):
         # process args to make sure they are no longer unicode.  This is an
         # issue with the args coming through the django frontend.
         clean_args = {}
-        args = simplejson.loads(args)
-        if args:
-            for arg_key, arg_value in args.items():
-                clean_args[arg_key.__str__()] = arg_value
+        if args and isinstance(args, str):
+            args = simplejson.loads(args)
+            clean_args = dict((str(k), v) for k, v in args.iteritems())
 
         # only create a new task instance if this is the root task.  Otherwise
         # subtasks will be created within the structure of the task.

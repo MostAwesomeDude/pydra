@@ -134,7 +134,7 @@ class TaskManager(Module):
 
     def _register(self, manager):
         super(TaskManager, self)._register(manager)
-        
+
         # XXX share reference to self as task_manager
         self.task_manager = self
 
@@ -479,7 +479,7 @@ class TaskManager(Module):
                     # append the callback
                     self._task_callbacks[pkg_name].append((task_key, d))
                 task_class = pkg.tasks.get(task_key, None)
-                
+
                 if task_class and (version is None or pkg.version == version):
                     module_path, cycle = self._compute_module_search_path(
                             pkg_name)
