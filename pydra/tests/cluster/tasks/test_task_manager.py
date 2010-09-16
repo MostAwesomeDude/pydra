@@ -21,7 +21,6 @@ import os.path
 import shutil
 import tempfile
 import time
-import unittest
 from datetime import datetime
 
 #environment must be configured before loading tests
@@ -36,6 +35,7 @@ from pydra.models import TaskInstance
 from pydra.util import makedirs
 
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+from pydra.tests import django_testcase
 
 test_string = """
 from pydra.cluster.tasks import Task
@@ -97,7 +97,7 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
                         version), True)
 
 
-class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
+class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
 
     def setUp(self):
         TaskManagerTestCaseMixIn.setUp(self)
