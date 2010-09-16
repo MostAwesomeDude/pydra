@@ -206,9 +206,9 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         """
         wm = self.wm
         worker = self.add_worker()
-        args = 'fake.task', 'v1.0', 'FAKE_CLASS', 'SEARCH_PATH?', worker.name
+        args = ('fake.task', 'v1.0', 'FAKE_CLASS', 'SEARCH_PATH?'), worker.name
         deferred = wm._run_task(*args, main_worker=worker.name)
-        self.assert_(isinstance(deferred, (Deferred,)), 'run_task should return a deferred')
+        self.assert_(isinstance(deferred, Deferred), 'run_task should return a deferred')
         self.assertCalled(worker.remote, 'run_task', *args)
 
     def test_run_task(self):
@@ -224,9 +224,9 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         """
         wm = self.wm
         worker = self.add_worker()
-        args = 'fake.task', 'v1.0', 'FAKE_CLASS', 'SEARCH_PATH?', worker.name
+        args = ('fake.task', 'v1.0', 'FAKE_CLASS', 'SEARCH_PATH?'), worker.name
         deferred = wm._run_task(*args)
-        self.assert_(isinstance(deferred, (Deferred,)), 'run_task should return a deferred')
+        self.assert_(isinstance(deferred, Deferred), 'run_task should return a deferred')
         self.assertCalled(worker.remote, 'run_task', *args)
 
     def test_run_task_worker_not_started(self, mainworker=True, subtask=False):
@@ -242,11 +242,9 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         worker_id = 'new_worker:0'
         main_worker_id = worker_id if mainworker else 'other_worker:0'
         workunits = 'FAKE_WORKUNITS' if subtask else None
+        task_tuple = ('fake.task', 'v1.1', 'FAKE_CLASS', 'SEARCH_PATH?')
         kwargs = dict(
-             key='fake.task',
-             version='v1.1',
-             task_class='FAKE_CLASS',
-             module_search_path='SEARCH_PATH?',
+            task_tuple = task_tuple,
              worker_key=worker_id,
              workunits=workunits,
              main_worker=main_worker_id
@@ -254,7 +252,7 @@ class WorkerManager(unittest.TestCase, ModuleTestCaseMixIn, WorkerConnectionMana
         
         # initial call that starts worker
         deferred = wm._run_task(**kwargs)
-        self.assert_(isinstance(deferred, (Deferred,)), 'run_task should return a deferred')
+        self.assert_(isinstance(deferred, Deferred), 'run_task should return a deferred')
         worker = wm.workers[worker_id]
         deferred.addCallback(self.callback, key='run_task')
         

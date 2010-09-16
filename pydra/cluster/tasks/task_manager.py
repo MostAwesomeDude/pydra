@@ -19,7 +19,7 @@
 from __future__ import with_statement
 
 from collections import defaultdict
-from threading import Lock, RLock
+from threading import RLock
 import os
 import shutil
 import time
@@ -28,6 +28,7 @@ import time
 from django.core.paginator import Paginator, InvalidPage, EmptyPage
 from django.template import Context, loader
 
+from twisted.internet.defer import Deferred
 from twisted.internet.task import LoopingCall
 
 from pydra.config import load_settings
@@ -118,11 +119,13 @@ class TaskManager(Module):
         self.registry = {}
         self.package_dependency = graph.DirectedGraph()
 
-        # task_key : callback list
         self._task_callbacks = defaultdict(list)
+        """
+        Dictionary mapping task keys to a list of `Deferred`s waiting to be
+        fired.
+        """
 
         self._lock = RLock()
-        self._callback_lock = Lock()
 
         self.__initialized = False
 
@@ -334,13 +337,13 @@ class TaskManager(Module):
                 callbacks = self._task_callbacks[pkg_name]
                 module_path, cycle = self._compute_module_search_path(pkg_name)
                 while len(callbacks):
-                    task_key, errcallback, callback, args, kw = callbacks.pop(0)
+                    task_key, d = callbacks.pop(0)
                     if cycle:
-                        errcallback(task_key, pkg.version,
-                                'Cycle detected in dependency')
+                        d.errback((task_key, pkg.version,
+                            'Cycle detected in dependency'))
                     else:
-                        callback(task_key, pkg.version, pkg.tasks[task_key],
-                                module_path, *args, **kw)
+                        d.callback((task_key, pkg.version, pkg.tasks[task_key],
+                                module_path))
                 return pkg
         return None
 
@@ -439,12 +442,9 @@ class TaskManager(Module):
         fp.close()
         return log
 
-    def retrieve_task(self, task_key, version, callback, errcallback,
-            *callback_args, **callback_kwargs):
+    def retrieve_task(self, task_key, version):
         """
         Obtains a task through a variety of methods.
-
-        XXX So close and yet so far to properly using Deferreds. :c
 
         :Parameters:
             task_key
@@ -452,7 +452,13 @@ class TaskManager(Module):
             version
                 The task version, or None for the latest version added to the
                 manager's cache.
+
+        :returns: A `Deferred` that will be fired with a tuple containing the
+        task key, the package version, the task class, and the module path, on
+        success, or the task key, package version, and error string, on failure.
         """
+
+        d = Deferred()
 
         pkg_name = task_key[:task_key.find('.')]
         needs_update = False
@@ -471,19 +477,18 @@ class TaskManager(Module):
                 if pkg_status == packaging.STATUS_OUTDATED:
                     # package has already entered a sync process;
                     # append the callback
-                    self._task_callbacks[pkg_name].append((callback,
-                        callback_args, callback_kwargs))
+                    self._task_callbacks[pkg_name].append((task_key, d))
                 task_class = pkg.tasks.get(task_key, None)
                 
                 if task_class and (version is None or pkg.version == version):
                     module_path, cycle = self._compute_module_search_path(
                             pkg_name)
                     if cycle:
-                        errcallback(task_key, pkg.version,
-                                'Cycle detected in dependency')
+                        d.errback(
+                            (task_key, pkg.version, 'Cycle detected in dependency'))
                     else:
-                        callback(task_key, version, task_class, module_path,
-                                *callback_args, **callback_kwargs)
+                        d.callback((task_key, version, task_class,
+                            module_path))
                 else:
                     # needs update
                     pkg.status = packaging.STATUS_OUTDATED
@@ -496,9 +501,9 @@ class TaskManager(Module):
 
         if needs_update:
             self.emit('TASK_OUTDATED', pkg_name, version)
-            self._task_callbacks[pkg_name].append((task_key, errcallback,
-                callback, callback_args, callback_kwargs))
+            self._task_callbacks[pkg_name].append((task_key, d))
 
+        return d
 
     def list_task_keys(self):
         return [k[0] for k in self.registry.keys() if k[0].find('.') != -1]

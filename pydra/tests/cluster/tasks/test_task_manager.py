@@ -21,7 +21,6 @@ import os.path
 import shutil
 import tempfile
 import time
-import unittest
 from datetime import datetime
 
 #environment must be configured before loading tests
@@ -36,6 +35,7 @@ from pydra.models import TaskInstance
 from pydra.util import makedirs
 
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+from pydra.tests import django_testcase
 
 test_string = """
 from pydra.cluster.tasks import Task
@@ -72,8 +72,32 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
             '%s.%s.TestTask' % (self.package, module),
         ]
 
+    def create_cache_entry(self, hash='FAKE_HASH'):
+        """
+        Creates fake entries in the internal tasks directory.
+        """
+        internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
+                    self.package, hash)
+        
+        makedirs(internal_folder)
 
-class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
+    def clear_cache(self):
+        """
+        Clears the entire cache of all packages.
+        """
+        shutil.rmtree(self.package_dir_internal, True)
+
+    def clear_package_cache(self):
+        """
+        Clears the test package's cache.
+        """
+        if os.path.exists(self.package_dir_internal):
+            for version in os.listdir(self.package_dir_internal):
+                shutil.rmtree(os.path.join(self.package_dir_internal,
+                        version), True)
+
+
+class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
 
     def setUp(self):
         TaskManagerTestCaseMixIn.setUp(self)
@@ -134,30 +158,6 @@ class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
                 except OSError:
                     print "Warning: Directory %s still dirty" % directory
                     shutil.rmtree(directory)
-
-    def create_cache_entry(self, hash='FAKE_HASH'):
-        """
-        Creates fake entries in the internal tasks directory.
-        """
-        internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
-                    self.package, hash)
-        
-        makedirs(internal_folder)
-
-    def clear_cache(self):
-        """
-        Clears the entire cache of all packages.
-        """
-        shutil.rmtree(self.package_dir_internal, True)
-
-    def clear_package_cache(self):
-        """
-        Clears the test package's cache.
-        """
-        if os.path.exists(self.package_dir_internal):
-            for version in os.listdir(self.package_dir_internal):
-                shutil.rmtree(os.path.join(self.package_dir_internal,
-                        version), True)
 
     def test_trivial(self):
         """
@@ -221,10 +221,21 @@ class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
         self.task_manager.autodiscover()
         helper = RetrieveHelper()
         task_key = self.tasks[0]
-        self.task_manager.retrieve_task(task_key, None, helper.callback,
-            helper.errback)
+        deferred = self.task_manager.retrieve_task(task_key, None)
+        deferred.addCallbacks(helper.callback, helper.errback)
+
         self.assertEquals(task_key, helper.task_key,
             'Task_key does not match')
+        self.assert_(helper.task_class, 'task class was not retrieved')
+
+    def test_retrieve_task_lazy_init(self):
+        helper = RetrieveHelper()
+        task_key = self.tasks[0]
+        deferred = self.task_manager.retrieve_task(task_key, None)
+        deferred.addCallbacks(helper.callback, helper.errback)
+
+        self.assertEqual(task_key, helper.task_key)
+        self.assert_(helper.task_class, 'task class was not retrieved')
 
     def test_lazy_init(self):
         self.assertTrue(self.task_manager.lazy_init)
@@ -246,7 +257,7 @@ class RetrieveHelper():
         self.args = args
         self.kwargs = kw
 
-    def errback(self):
+    def errback(self, *args, **kwargs):
         print "Retrieval failed!"
 
 

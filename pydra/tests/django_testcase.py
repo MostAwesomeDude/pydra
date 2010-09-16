@@ -18,7 +18,9 @@
 """
 import unittest
 import os
+import shutil
 import sys
+import tempfile
 
 from django.db import connection
 
@@ -30,7 +32,8 @@ class TestCase(unittest.TestCase):
     Specialized TestCase that creates and destroys the django environment
     and database required for some tests.
     """
-    test_tb = None
+    test_db = None
+    test_db_dir = None
     
     def __init__(self, *args, **kwargs):
         
@@ -41,7 +44,7 @@ class TestCase(unittest.TestCase):
         def setUpBoth():
             self.__class__.setUpClass()
             self._setUp()
-    
+        
         def tearDownBoth():
             self._tearDown()
             self.__class__.tearDownClass()
@@ -51,11 +54,16 @@ class TestCase(unittest.TestCase):
         self._tearDown = self.tearDown
         self.tearDown = tearDownBoth
     
-    
     @classmethod
     def setUpClass(cls):
         # add the config dir to the path so the default dir can be found
         sys.path.insert(0, './config')
+        import pydra_settings
+        
+        # if using sqlite, update the database location to a temp dir
+        if pydra_settings.DATABASE_ENGINE == 'sqlite3':
+            cls.test_db_dir = tempfile.mkdtemp()
+            pydra_settings.DATABASE_NAME = '%s/pydra.db3' % cls.test_db_dir
         
         # point django at the test config
         if not os.environ.has_key('DJANGO_SETTINGS_MODULE'):
@@ -64,8 +72,6 @@ class TestCase(unittest.TestCase):
         # create test db.
         with MuteStdout():
             cls.test_db = connection.creation.create_test_db(autoclobber=True)
-        
-    
     
     @classmethod
     def tearDownClass(cls):
@@ -79,3 +85,18 @@ class TestCase(unittest.TestCase):
             pass
         with MuteStdout():
             connection.creation.destroy_test_db(cls.test_db)
+            
+        if cls.test_db_dir:
+            try:
+                os.rmdir(cls.test_db_dir)
+            except OSError:
+                #print "Warning: Directory %s not empty" % cls.test_db_dir
+                try:
+                    os.removedirs(cls.test_db_dir)
+                except OSError:
+                    #print "Warning: Directory %s still dirty" % cls.test_db_dir
+                    try:
+                        shutil.rmtree(cls.test_db_dir)
+                    except OSError:
+                        #print 'Warning couldn''t remove tree'
+                        pass

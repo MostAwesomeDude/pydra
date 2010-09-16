@@ -205,23 +205,21 @@ class WorkerManager(Module):
     def request_worker_release(self, *args, **kwargs):
         return self.proxy_to_master('request_worker_release', *args, **kwargs)
 
-    def retrieve_task_failed(self, *args, **kwargs):
-        pass
-
     def run_task(self, avatar, worker_key, key, version, args={}, \
             workunits=None, main_worker=None, task_id=None):
         """
-        Runs a task on this node.  This function will first retrieve the task
-        from the task manager.  The task manager will load the task, this may
-        involve synchronizing code from a remote source, but that should be
-        transparent to this functionality.
-        """
-        self.task_manager.retrieve_task(key, version, self._run_task, \
-                self.retrieve_task_failed, worker_key, args, workunits, \
-                main_worker, task_id)
+        Run a task on this node.
 
-    def _run_task(self, key, version, task_class, module_search_path, \
-            worker_key, args={}, workunits=None, main_worker=None, task_id=None):
+        This method will first retrieve the task from the task manager, and
+        then run it if the retrieval was successful.
+        """
+
+        deferred = self.task_manager.retrieve_task(key, version)
+        deferred.addCallback(self._run_task, worker_key, args, workunits,
+            main_worker, task_id)
+
+    def _run_task(self, task_tuple, worker_key, args={}, workunits=None,
+            main_worker=None, task_id=None):
         """
         Runs a task on this node.  The worker scheduler on master makes all
         decisions about which worker to run on.  This method only checks
@@ -229,11 +227,15 @@ class WorkerManager(Module):
         explicit and deliberate division of repsonsibility.  Allowing
         decisions here dilutes the ability of the Master to control the
         cluster
-        
-        @param key - task key
-        @param version - version of task to run
-        @param task_class - task class to be created TODO why is this here?
-        @param module_search_path - TODO why is this here?
+
+        The task tuple is the task key, package version, task class, and
+        module search path, from `TaskManager.retrieve_task()`.
+
+        :Parameters:
+            task_tuple : tuple
+                Tuple of the task key, package version, and two unused
+                members.
+
         @param worker_key - key of worker to run task on
         @param args - args for task
         @param subtask_key - key of subtask to run
@@ -241,10 +243,12 @@ class WorkerManager(Module):
         @param main_worker - main worker for this task
         @param task_id - id of task being run
         """
+        key, version, chaff, chaff = task_tuple
+
         logger.info('RunTask:%s  key=%s  sub=%s  main=%s' \
             % (task_id, key, workunits, main_worker))
         worker = None
-        
+
         with self.__lock:
             if worker_key in self.workers:
                 # worker exists.  reuse it.
@@ -304,10 +308,11 @@ class WorkerManager(Module):
         """
         sent_deferred = worker.run_task_deferred
         if sent_deferred:
-            deferred = self._run_task(worker.key, worker.version, None, None, \
-                worker.worker_key, worker.args, worker.workunits, \
+            deferred = self._run_task(
+                (worker.key, worker.version, None, None),
+                worker.worker_key, worker.args, worker.workunits,
                 worker.main_worker, worker.task_id)
-            deferred.addCallback(sent_deferred.callback)
+            deferred.chainDeferred(sent_deferred)
 
     def send_results(self, worker_key, results, *args, **kwargs):
         """
