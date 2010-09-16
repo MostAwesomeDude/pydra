@@ -21,6 +21,7 @@ import os.path
 import shutil
 import tempfile
 import time
+import unittest
 from datetime import datetime
 
 #environment must be configured before loading tests
@@ -249,11 +250,8 @@ class RetrieveHelper():
     args = None
     kwargs = None
 
-    def callback(self, task_key, version, task_class, module_path, *args, **kw):
-        self.task_key = task_key
-        self.version = version
-        self.task_class = task_class
-        self.module_path = module_path
+    def callback(self, task_tuple, *args, **kw):
+        self.task_key, self.version, self.task_class, self.module_path = task_tuple
         self.args = args
         self.kwargs = kw
 
