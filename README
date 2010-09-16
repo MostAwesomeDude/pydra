@@ -1,6 +1,29 @@
-Pydra is python framework for writing parallel and distributed programs.  It seeks to abstract the ideas of parallization simplifying the programing work required for distributed programs
+Pydra
+=====
 
-For more documentation on how to use and develop applications for Pydra please see:  http://Pydra-project.osuosl.org
+Pydra is a Python framework for writing parallel and distributed programs. It
+seeks to abstract the ideas of parallelization, simplifying the programming
+work required for distributed computations.
 
-== Installation ==
-See INSTALL in the same directory as this file
+For more documentation on how to use and develop applications for Pydra,
+please see our website, http://pydra-project.osuosl.org/.
+
+Installation
+============
+
+Installation is relatively simple.
+
+ #. Update paths in pydra/config.py if needed
+ #. Run setup.py in this folder.  requires root
+ #. Set ownership/groups appropriately for these:
+
+    * config.RUNTIME
+    * config.RUNTIME_FILES_DIR
+    * config.LOGGING_DIR
+ #. Update CONFIG_DIR/pydra_settings.py to contain your database information
+ #. Create database with: pydra_manage syncdb
+ #. Start pydra with pydra_master and pydra_node
+
+Notes:
+
+ * This installer does not yet allow variable configuration of config paths
