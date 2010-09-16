@@ -104,23 +104,19 @@ class CallProxy(object):
     setting the enabled flag can enable/disable whether the method is actually
     executed when it is called, or just recorded.
     """
-    def __init__(self, func, enabled=True, response=None, instance=None, **kwargs):
+    def __init__(self, func, enabled=True, response=None, **kwargs):
         """
         :parameters:
             func: function to proxy
             enabled: whether to call the wrapped function
             kwargs: kwargs passed to all calls.  may be overwritten by kwargs
                     passed to function
-            instance: instance being patched, this is only needed when the call
-                    is disabled.  self won't be passed automatically to the
-                    matching function
         """
         self.func = func
         self.calls = []
         self.enabled = enabled
         self.kwargs = kwargs
         self.response = response
-        self.instance = instance
         
         if func:
             self.matching_function = self.create_matching_function(func)
@@ -179,13 +175,13 @@ class CallProxy(object):
         if self.enabled:
             response = self.func(*args, **kwargs_)
         elif self.func:
-            # call argumented call, this ensures the args are checked even when
+            # call matching call, this ensures the args are checked even when
             # the real function isn't actually called
             #
             # pass in the instance if it is set.  if this was a bound method
             # then it will fail without self passed.
-            if self.instance:
-                self.matching_function(self.instance, *args, **kwargs)
+            if self.func.im_self:
+                self.matching_function(self.func.im_self, *args, **kwargs)
             else:
                 self.matching_function(*args, **kwargs)
         
@@ -205,6 +201,8 @@ class CallProxy(object):
         base_code = base.__code__
         code = func.__code__
         
+        name = 'MATCHING_PROXY: %s' % func.__name__
+        
         new_code = types.CodeType( \
             code.co_argcount, \
             code.co_nlocals, \
@@ -215,12 +213,12 @@ class CallProxy(object):
             base_code.co_names, \
             code.co_varnames, \
             base_code.co_filename, \
-            func.__name__, \
+            name, \
             base_code.co_firstlineno, \
             base_code.co_lnotab)
-         
+        
         return types.FunctionType(new_code, func.func_globals, \
-                                  func.__name__, func.func_defaults)
+                                  name, func.func_defaults)
 
     @classmethod
     def patch(cls, instance, name, **kwargs):
@@ -234,7 +232,7 @@ class CallProxy(object):
             * name: name of function to 
         """
         func = getattr(instance, name)
-        proxy = CallProxy(func, instance=instance, **kwargs)
+        proxy = CallProxy(func, **kwargs)
         setattr(instance, name, proxy)
 
 class RemoteProxy():
