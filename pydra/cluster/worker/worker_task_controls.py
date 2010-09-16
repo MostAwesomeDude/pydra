@@ -50,7 +50,11 @@ def BatchIteratorNoArgs(batch):
 
 
 class WorkerTaskControls(Module):
-
+    """
+    This module contains functions for interacting with Tasks on the Worker and
+    for Tasks to interact with the cluster.
+    """
+    
     _shared = [
         'worker_key',
         'master',
@@ -82,7 +86,12 @@ class WorkerTaskControls(Module):
         # shutdown tracking
         self._pending_releases = 0
         self._pending_shutdown = False
-
+    
+    def _register(self, manager):
+        super(WorkerTaskControls, self)._register(manager)
+        
+        if not self._lock_connection:
+            self._lock_connection = Lock()
 
     def batch_complete(self):
         """
@@ -237,16 +246,13 @@ class WorkerTaskControls(Module):
         # if there is a task it must still be running
         if self._task:
             return (WORKER_STATUS_WORKING, self._task, self._subtask)
-
+        
         # if there are results it was waiting for the master to retrieve them
         if self._results:
             return (WORKER_STATUS_FINISHED, self._task, self._subtask)
-
+        
         return (WORKER_STATUS_IDLE,)
 
-
-    
-    
     def batched_work_complete(self, results, workunit=None, failed=False):
         """
         Callback that is called when a job is run in non_blocking mode and has
@@ -290,7 +296,7 @@ class WorkerTaskControls(Module):
         # create traceback if its an error
         if failed:
             results = results.__str__()
-
+        
         if self._task_instance.STOP_FLAG:
             # If stop flag is set for either the main task or local task
             # then ignore any results and stop the task
@@ -299,10 +305,10 @@ class WorkerTaskControls(Module):
                     deferred = self.master.callRemote("worker_stopped")
                     deferred.addCallback(self.send_successful)
                     deferred.addErrback(self.send_stopped_failed)
-
+                
                 else:
                     self._stop_flag = True
-
+        
         else:
             #completed normally
             # if the master is still there send the results
@@ -312,11 +318,10 @@ class WorkerTaskControls(Module):
                     deferred = self.master.callRemote("send_results", results)
                     deferred.addCallback(self.send_successful)
                     deferred.addErrback(self.send_results_failed)
-
+                
                 # master disapeared, hold results until it requests them
                 else:
                     self._results = results
-
 
     def send_results_failed(self, results):
         """
