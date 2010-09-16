@@ -231,8 +231,9 @@ class TaskManagerTest(unittest.TestCase, TaskManagerTestCaseMixIn):
     def test_retrieve_task_lazy_init(self):
         helper = RetrieveHelper()
         task_key = self.tasks[0]
-        self.task_manager.retrieve_task(task_key, None, helper.callback,
-            helper.errback)
+        deferred = self.task_manager.retrieve_task(task_key, None)
+        deferred.addCallbacks(helper.callback, helper.errback)
+
         self.assertEqual(task_key, helper.task_key)
         self.assert_(helper.task_class, 'task class was not retrieved')
 
