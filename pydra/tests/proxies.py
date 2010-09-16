@@ -104,112 +104,92 @@ class CallProxy(object):
     setting the enabled flag can enable/disable whether the method is actually
     executed when it is called, or just recorded.
     """
-    def __init__(self, func, enabled=True, response=None, **kwargs):
+    def __init__(self, func, enabled=True, response=None, instance=None, **kwargs):
         """
         :parameters:
             func: function to proxy
             enabled: whether to call the wrapped function
             kwargs: kwargs passed to all calls.  may be overwritten by kwargs
                     passed to function
+            instance: instance being patched, this is only needed when the call
+                    is disabled.  self won't be passed automatically to the
+                    matching function
         """
         self.func = func
         self.calls = []
         self.enabled = enabled
         self.kwargs = kwargs
         self.response = response
+        self.instance = instance
         
         if func:
-            self.argumented_call = self.create_matching_function(func)
-
-    def __new__(cls, *args, **kwargs):
-        # create instance of class to hold args, technically
-        # we could just return the inner function here but it might
-        # still be a good idea to drop this whole __new__ business
-        instance = super(CallProxy, cls).__new__(cls)
-        instance.__init__(*args, **kwargs)
-       
-        # return wrapped function
-        return instance.create_function()
-        
-    def create_function(self):
-        """
-        Creates an inner function that wraps the original call.  The inner
-        function will:
-            * have access to the callProxy instance by referencing self.
-            * have additional functions monkey patched onto it so that it may
-            perform actions such as assertCalled()
-        """
-        def assertCalled(testcase, *args, **kwargs):
-            """
-            Assertion function for checking if a callproxy was called
-            """
-            f = self.func
-            calls = self.calls
-            if args or kwargs:
-                #detailed match
-                for t in calls:
-                    args_, kwargs_ = t
-                    if args_==args and kwargs_==kwargs:
-                        return t
-                testcase.fail("exact call (%s) did not occur: %s" % (f, calls))
-                
-            else:
-                # simple match
-                testcase.assert_(calls, "%s was not called: %s" % (f, calls))
-                return calls[0]
+            self.matching_function = self.create_matching_function(func)
     
-        def assertNotCalled(testcase, *args, **kwargs):
-            """
-            Assertion function for checking if callproxy was not called
-            """
-            f = self.func
-            calls = self.calls
-            if args or kwargs:
-                #detailed match
-                for t in calls:
-                    args_, kwargs_ = t
-                    if args_==args and kwargs_==kwargs:
-                        testcase.fail("exact call (%s) was made: %s" % (f, calls))
+    def assertCalled(self, testcase, *args, **kwargs):
+        """
+        Assertion function for checking if a callproxy was called
+        """
+        f = self.func
+        calls = self.calls
+        if args or kwargs:
+            #detailed match
+            for t in calls:
+                args_, kwargs_ = t
+                if args_==args and kwargs_==kwargs:
+                    return t
+            testcase.fail("exact call (%s) did not occur: %s" % (f, calls))
+            
+        else:
+            # simple match
+            testcase.assert_(calls, "%s was not called: %s" % (f, calls))
+            return calls[0]
+
+    def assertNotCalled(self, testcase, *args, **kwargs):
+        """
+        Assertion function for checking if callproxy was not called
+        """
+        f = self.func
+        calls = self.calls
+        if args or kwargs:
+            #detailed match
+            for t in calls:
+                args_, kwargs_ = t
+                if args_==args and kwargs_==kwargs:
+                    testcase.fail("exact call (%s) was made: %s" % (f, calls))
+        else:
+            # simple match
+            testcase.assertFalse(calls, '%s was not called' % f)
+        
+    def enable(self):
+        self.enabled = True
+    
+    def disable(self):
+        self.enabled = False
+        
+    def reset(self):
+        self.calls = []
+        
+    def __call__ (self, *args, **kwargs):
+        response = None
+        kwargs_ = {}
+        kwargs_.update(self.kwargs)
+        kwargs_.update(kwargs)
+        self.calls.append((args, kwargs_))
+        
+        if self.enabled:
+            response = self.func(*args, **kwargs_)
+        elif self.func:
+            # call argumented call, this ensures the args are checked even when
+            # the real function isn't actually called
+            #
+            # pass in the instance if it is set.  if this was a bound method
+            # then it will fail without self passed.
+            if self.instance:
+                self.matching_function(self.instance, *args, **kwargs)
             else:
-                # simple match
-                testcase.assertFalse(calls, '%s was not called' % f)
+                self.matching_function(*args, **kwargs)
         
-        def enable():
-            self.enabled = True
-        
-        def disable():
-            self.enabled = False
-        
-        def reset():
-            self.calls = []
-        
-        def call_proxy (*args, **kwargs):
-            #print "Entering", self, args, kwargs
-            response = None
-            kwargs_ = {}
-            kwargs_.update(self.kwargs)
-            kwargs_.update(kwargs)
-            self.calls.append((args, kwargs_))
-            
-            if self.enabled:
-                response = self.func(*args, **kwargs_)
-            elif self.func:
-                # call argumented call, this ensures the args are checked even when
-                # the real function isn't actually called
-                self.argumented_call(*args, **kwargs)
-            #print "Exited", self.func
-            return self.response if self.response != None else response
-            
-        call_proxy.assertCalled = assertCalled
-        call_proxy.assertNotCalled = assertNotCalled
-        call_proxy.calls = self.calls
-        call_proxy.disable = disable
-        call_proxy.enable = enable
-        call_proxy.reset = reset
-        call_proxy.func = self.func
-        if self.func:
-            call_proxy.__name__ = 'call_proxy(%s)' % self.func.__name__
-        return call_proxy
+        return self.response if self.response != None else response
 
     def create_matching_function(self, func):
         """
@@ -242,6 +222,20 @@ class CallProxy(object):
         return types.FunctionType(new_code, func.func_globals, \
                                   func.__name__, func.func_defaults)
 
+    @classmethod
+    def patch(cls, instance, name, **kwargs):
+        """
+        Helper function for patching a function on an instance.  useful since
+        patching an instance requires a bit more work to ensure the proxy works
+        correctly.
+        
+        :parameters:
+            * instance: instance to patch
+            * name: name of function to 
+        """
+        func = getattr(instance, name)
+        proxy = CallProxy(func, instance=instance, **kwargs)
+        setattr(instance, name, proxy)
 
 class RemoteProxy():
     """

@@ -120,8 +120,7 @@ class TaskScheduler_Base(django.TestCase, ModuleTestCaseMixIn):
         self.scheduler._register(self.manager)
         
         # intercept _schedule so that its calls can be recorded
-        if not hasattr(scheduler.TaskScheduler._schedule, 'func'):
-            scheduler.TaskScheduler._schedule = CallProxy(scheduler.TaskScheduler._schedule)
+        CallProxy.patch(self.scheduler, '_schedule')
         
         # hook the threads modules in the scheduling module so we can intercept
         # any calls to deferToThread()
