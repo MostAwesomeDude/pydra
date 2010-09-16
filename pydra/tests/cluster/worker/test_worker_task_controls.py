@@ -18,19 +18,24 @@
 """
 import unittest
 
+from twisted.trial import unittest as twisted_unittest
+from twisted.internet import threads
+
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
+from pydra.cluster.constants import WORKER_STATUS_WORKING, WORKER_STATUS_IDLE, \
+    WORKER_STATUS_FINISHED
 from pydra.cluster.module import ModuleManager
 from pydra.cluster.worker import WorkerTaskControls
 
-
+from pydra.tests import clean_reactor
 from pydra.tests.cluster.tasks.test_task_manager import TaskManagerTestCaseMixIn
 from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
+from pydra.tests.proxies import RemoteProxy
 
-
-class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
+class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseMixIn):
     
     def setUp(self):
         TaskManagerTestCaseMixIn.setUp(self)
@@ -38,8 +43,42 @@ class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
         self.task_manager.autodiscover()
         self.worker_task_controls = WorkerTaskControls()
         self.manager.register(self.worker_task_controls)
+        self.worker_task_controls.master = RemoteProxy('master')
         self.assert_(self.worker_task_controls in self.manager._modules)
     
+    def tearDown(self):
+        clean_reactor()
+    
+    def run_task(self, key='test.testmodule.TestTask'):
+        wtc = self.worker_task_controls
+        wtc.run_task(key, None)
+        return key
+    
+    def assertResults(self, results, size=1, value=2, workunit=False, failures=[]):
+        """
+        asserts that results are structured correctly
+        :parameters:
+            results - results object (tuple/list)
+            size - expected size of results
+            value - expected starting value for results
+            workunit - workunit_id if any
+            failures - workunit_ids corresponding to any failures, or any true
+                       value for a single result
+                       
+        Verifies:
+            * result size
+            * values of all results
+        """
+        self.assert_(isinstance(results, (tuple,list)))
+        self.assertEqual(len(results), size)
+        for i in range(size):
+            result = results[i]
+            value_, workunit_, failure = result
+            if workunit:
+                self.assert_(workunit_)
+            elif failures:
+                self.assertFalse(failure)
+            self.assertEqual(value+i, value)
     
     def test_trivial(self):
         """
@@ -64,6 +103,21 @@ class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
     def test_run_batch(self):
         raise NotImplementedError
     
+    
+    def verify_running_task(self, key):
+        """
+        Callback for verifying running task
+        
+        Verifies:
+            * task instance created
+            * task key matches requested key
+            * worker status is WORKER_STATUS_WORKING
+        """
+        wtc = self.worker_task_controls
+        self.assertEqual(wtc._task, key)
+        self.assert_(wtc._task_instance)
+        self.assertEqual(wtc.status(), (WORKER_STATUS_WORKING,key,None))
+    
     def test_run_task(self):
         """
         run a task
@@ -71,19 +125,12 @@ class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
         Verifies:
             * task is started
         """
-        wtc = self.worker_task_controls
-        tm = self.task_manager
-        
-        key = self.tasks[0]
-        version = 'FAKE_HASH'
-        
-        ret = wtc.run_task(key, version)
-        
-        self.assertEqual(wtc._task, key)
-        self.assert_(wtc._task_instance)
+        key = 'test.testmodule.TestTask'
+        self.run_task()
+        return threads.deferToThread(self.verify_running_task, key)
     
-    def test_run_task_no_key(self):
-        raise NotImplementedError
+    def test_run_task_invalid_key(self):
+        self.run_task('FAKE_KEY')
     
     def test_run_subtask(self):
         raise NotImplementedError
@@ -91,7 +138,7 @@ class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
     def test_stop_task(self):
         raise NotImplementedError
     
-    def test_status(self):
+    def test_status_idle(self):
         """
         retrieve status of worker
         
@@ -100,19 +147,127 @@ class WorkerTaskControlsTestCase(unittest.TestCase, TaskManagerTestCaseMixIn):
             * WORKER_STATUS_FINISHED if finished but results not sent
             * WORKER_STATUS_IDLE otherwise
         """
-        raise NotImplementedError
+        wtc = self.worker_task_controls
+        self.assertEqual(wtc.status(), (WORKER_STATUS_IDLE,))
     
     def test_work_complete(self):
-        raise NotImplementedError
+        """
+        Task completes work and calls work_complete()
+        
+        Verifies:
+            * status is marked finished
+            * master is sent results
+        """
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
+        self.assertResults(args[1])
+        self.assertEqual(wtc.status(), (WORKER_STATUS_FINISHED,key,None))
+    
+    def test_work_complete_no_master(self):
+        """
+        Task completes work and calls work_complete() but node isn't available
+        
+        Verifies:
+            * status is marked finished
+            * _results are saved
+        """
+        wtc = self.worker_task_controls
+        wtc.master = None
+        key = self.run_task()
+        wtc.work_complete(2)
+        self.assert_(wtc._results)
+        self.assertResults(wtc._results)
+        self.assertEqual(wtc.status(), (WORKER_STATUS_FINISHED,key,None))
+    
+    def test_work_complete_stopped(self):
+        """
+        Task completes work and calls work_complete() but node isn't available
+        
+        Verifies:
+            * stop_flag is set
+            * master is informed the worker stopped
+        """
+        wtc = self.worker_task_controls
+        self.run_task()
+        wtc.work_complete(2)
+        self.assert_(wtc._stop_flag)
+        wtc.master.assertCalled(self, 'worker_stopped')
+    
+    def test_work_complete_stopped_no_master(self):
+        """
+        Task completes work and calls work_complete() but node isn't available
+        
+        Verifies:
+            * stop flag is set
+        """
+        wtc = self.worker_task_controls
+        wtc.master = None
+        self.run_task()
+        wtc.work_complete(2)
+        self.assert_(wtc._stop_flag)
+        wtc.master.assertCalled(self, 'worker_stopped')
     
     def test_send_results_failed(self):
-        raise NotImplementedError
+        """
+        Send results failed, but master returned before retry was available
+        
+        Verifies:
+            XXX this failover is not yet implemented because certain failures
+            will result in an endless loop if we immediately retry sending the
+            results.
+        """
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
+        self.fail('failover is not implemented')
+    
+    def test_send_results_failed_master_returned(self):
+        """
+        Send results failed, but master returned before retry was available
+        
+        Verifies:
+            XXX this failover is not yet implemented because certain failures
+            will result in an endless loop if we immediately retry sending the
+            results.
+        """
+        self.fail('failover is not implemented')
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
     
     def test_send_stop_failed(self):
-        raise NotImplementedError
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
+        self.fail('failover is not implemented')
+    
+    def test_send_stop_failed_master_returned(self):
+        """
+        Send stop failed, but master returned before retry was available
+        
+        Verifies:
+            XXX this failover is not yet implemented because certain failures
+            will result in an endless loop if we immediately retry sending the
+            results.
+        """
+        self.fail('failover is not implemented')
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
+        self.fail('failover is not implemented')
     
     def test_send_successful(self):
-        raise NotImplementedError
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        wtc.work_complete(2)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'send_results')
+        self.fail('need to handle call later')
     
     def test_task_status(self):
         raise NotImplementedError
