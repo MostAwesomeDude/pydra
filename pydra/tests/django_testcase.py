@@ -32,8 +32,8 @@ class TestCase(unittest.TestCase):
     Specialized TestCase that creates and destroys the django environment
     and database required for some tests.
     """
-    test_tb = None
-    test_tb_dir = None
+    test_db = None
+    test_db_dir = None
     
     def __init__(self, *args, **kwargs):
         
@@ -62,9 +62,8 @@ class TestCase(unittest.TestCase):
         
         # if using sqlite, update the database location to a temp dir
         if pydra_settings.DATABASE_ENGINE == 'sqlite3':
-            cls.test_tb_dir = tempfile.mkdtemp()
-            #print cls.test_db_dir
-            pydra_settings.DATABASE_NAME = '%s/pydra.db3' % cls.test_tb_dir
+            cls.test_db_dir = tempfile.mkdtemp()
+            pydra_settings.DATABASE_NAME = '%s/pydra.db3' % cls.test_db_dir
         
         # point django at the test config
         if not os.environ.has_key('DJANGO_SETTINGS_MODULE'):
@@ -87,13 +86,17 @@ class TestCase(unittest.TestCase):
         with MuteStdout():
             connection.creation.destroy_test_db(cls.test_db)
             
-        if cls.test_tb_dir:
+        if cls.test_db_dir:
             try:
-                os.rmdir(cls.test_tb_dir)
+                os.rmdir(cls.test_db_dir)
             except OSError:
-                print "Warning: Directory %s not empty" % directory
+                #print "Warning: Directory %s not empty" % cls.test_db_dir
                 try:
-                    os.removedirs(cls.test_tb_dir)
+                    os.removedirs(cls.test_db_dir)
                 except OSError:
-                    print "Warning: Directory %s still dirty" % directory
-                    shutil.rmtree(cls.test_tb_dir)
+                    #print "Warning: Directory %s still dirty" % cls.test_db_dir
+                    try:
+                        shutil.rmtree(cls.test_db_dir)
+                    except OSError:
+                        #print 'Warning couldn''t remove tree'
+                        pass
