@@ -440,8 +440,6 @@ class TaskManager(Module):
         """
         Obtains a task through a variety of methods.
 
-        XXX So close and yet so far to properly using Deferreds. :c
-
         :Parameters:
             task_key
                 The task key.
