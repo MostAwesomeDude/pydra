@@ -273,7 +273,61 @@ class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseM
         raise NotImplementedError
     
     def test_receive_results(self):
-        raise NotImplementedError
+        """
+        A task receives results from a subtask on another worker
+        
+        Verifies:
+            * list of results is iterated
+            * successful results are passed to task
+            * failed tasks are not
+            * expected results format is processed (workunit_id, result, failure)
+        """
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        results = (
+            (0, 0, False),
+            (1, 1, True),
+            (2, 2, False),
+            (3, 3, True)
+        )
+        worker_key = 'XXX_worker_key_not_needed'
+        subtask_key = 'XXX_need_a_real_subtask'
+        
+        # get the correct task, this may be a subtask of the root task
+        task = wtc._task_instance.get_subtask(subtask_key)
+        CallProxy.patch(task, '_work_unit_complete')
+        
+        wtc.receive_results('worker_key_not_needed', results, subtask_key)
+        
+        self.assertEqual(task._work_unit_complete.calls, 2)
+        for pair in zip(results, task._work_unit_complete.calls):
+            result, call = pair
+            self.assertEqual(result, call)
+    
+    def test_receive_results_stopped(self):
+        """
+        A stopped worker receive results
+        
+        Verifies:
+            * results are ignored
+        """
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        results = (
+            (0, 0, False),
+            (1, 1, True),
+            (2, 2, False),
+            (3, 3, True)
+        )
+        worker_key = 'XXX_worker_key_not_needed'
+        subtask_key = 'XXX_need_a_real_subtask'
+        
+        # get the correct task, this may be a subtask of the root task
+        task = wtc._task_instance.get_subtask(subtask_key)
+        CallProxy.patch(task, '_work_unit_complete')
+        
+        wtc.receive_results('worker_key_not_needed', results, subtask_key)
+        self.assertEqual(task._work_unit_complete.calls, 0)
     
     def test_release_worker(self):
         raise NotImplementedError
@@ -282,16 +336,63 @@ class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseM
         raise NotImplementedError
     
     def test_request_worker(self):
-        raise NotImplementedError
+        """
+        Task requests a worker from the master
+        
+        Verifies:
+            * request is passed to master
+        """
+        wtc = self.worker_task_controls
+        subtask_key = 'foo.bar.fake.subtask'
+        args = dict(a=1, b=2, c=3)
+        workunit_key = 1
+        
+        wtc.request_worker(subtask_key, args, workunit_key)
+        wtc.master.assertCalled(self, 'request_worker', subtask_key, args, workunit_key)
     
     def test_request_worker_release(self):
-        raise NotImplementedError
+        """
+        Task requests a waiting worker be released
+        
+        Verifies:
+            * request is passed to master
+            * pending release counter is incremented
+            * on success release counter is decremented
+        """
+        wtc = self.worker_task_controls
+        
+        self.assertEqual(wtc._pending_releases, 0)
+        wtc.request_worker_release()
+        self.assertEqual(wtc._pending_releases, 1)
+        args, kwargs, deferred = wtc.master.assertCalled(self, 'request_worker_release')
+        
+        deferred.callback(None)
+        self.assertEqual(wtc._pending_releases, 0)
     
-    def test_release_request_successful(self):
+    def test_request_Worker_release_pending_shutdown(self):
         raise NotImplementedError
     
     def test_return_work(self):
-        raise NotImplementedError
+        """
+        The scheduler returns work to the task because a worker failed
+        
+        XXX this may not happen anymore since the master queues work requests
+        
+        Verifies:
+            * work is returned to Task
+        """
+        wtc = self.worker_task_controls
+        key = self.run_task()
+        
+        subtask_key = 'XXX_need_a_real_subtask'
+        workunit_key = 'XXX_need_a_real_subtask'
+        
+        # get the correct task, this may be a subtask of the root task
+        task = wtc._task_instance.get_subtask(subtask_key).parent
+        CallProxy.patch(task, '_worker_failed')
+        
+        wtc.return_work(subtask_key, workunit_key)
+        self.assertEqual(task._worker_failed.calls, 0)
     
     def test_get_worker(self):
         """
@@ -319,4 +420,28 @@ class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseM
         raise NotImplementedError
     
     def test_subtask_started(self):
-        raise NotImplementedError
+        """
+        Task receives notice that subtasks have started
+        
+        Verifies:
+            * all messages are received by the task
+            * format is accepted: ((subtask_id, workunit_id)[, ...])
+        """
+        wtc = self.worker_task_controls
+        batch = (
+            ('foo.bar.fake.subtask', 0),
+            ('foo.bar.fake.subtask', 1),
+            ('foo.bar.fake.subtask', 2),
+            ('foo.bar.fake.subtask', 3),
+        )
+        worker_key = 'XXX_worker_key_not_needed'
+        subtask_key = 'XXX_need_a_real_subtask'
+        
+        task = wtc._task_instance
+        CallProxy.patch(task, 'subtask_started')
+        
+        wtc.subtask_started(batch)
+        self.assertEqual(task._work_unit_complete.calls, 4)
+        for pair in zip(batch, task.subtask_started.calls):
+            result, call = pair
+            self.assertEqual(result, call)
