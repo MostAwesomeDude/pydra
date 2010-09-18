@@ -56,59 +56,67 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
         # Lazy-inited, with no autodiscovery.
         self.task_manager = TaskManager(None, lazy_init=True)
         self.manager.register(self.task_manager)
-
-        # Make a test package.
-        self.package_name = 'test'
-        self.module_name = "testmodule"
-        self.package_dir = os.path.join(
-            self.task_manager.tasks_dir, self.package_name)
-        self.package_dir_internal = os.path.join(
-            self.task_manager.tasks_dir_internal, self.package_name)
-        makedirs(self.package_dir)
-        with open(
-            os.path.join(self.package_dir, "%s.py" % self.module_name), "w"
-            ) as f:
-            f.write(test_string)
-
+        
+        # Make a test package with a single file
+        self.packages = []
+        self.tasks = []
+        self.create_package()
+        self.create_file()
+        
         # Save test package information for later.
-        self.tasks = [
-            '%s.%s.TestTask' % (self.package_name, self.module_name),
-        ]
+        self.package_name = 'test'
+        self.package_dir_internal = os.path.join( \
+            self.task_manager.tasks_dir_internal, self.package_name)
+        self.task = 'test.testmodule.TestTask'
 
-    def create_cache_entry(self, hash='FAKE_HASH'):
+    def create_package(self, package='test'):
         """
-        Creates fake entries in the internal tasks directory.
+        Creates a package we can place test files into.  by default this will
+        stick a single file in the package with a basic task.
         """
+        dir = os.path.join(self.task_manager.tasks_dir, package)
+        makedirs(dir)
+        self.packages.append(package)
+
+    def create_file(self, package='test', module='testmodule', str=test_string):
+        """
+        Adds a python file to the package dir.
+        """
+        dir = os.path.join(self.task_manager.tasks_dir, package)
+        with open(os.path.join(dir, "%s.py" % module), "w") as f:
+                f.write(str)
+
+    def create_cache_entry(self, package='test', hash='FAKE_HASH'):
+        """
+        Creates fake entries in the internal tasks directory. This or
+        autodiscover must be called after adding files to the package.
+        """
+        dir = os.path.join(self.task_manager.tasks_dir, package)
         internal_folder = os.path.join(self.task_manager.tasks_dir_internal,
-                    self.package_name, hash)
-
-        makedirs(internal_folder)
-
-        with open(
-            os.path.join(internal_folder, "%s.py" % self.module_name), "w"
-            ) as f:
-            f.write(test_string)
+                    package, hash)
+        shutil.copytree(dir, internal_folder)
 
     def clear_cache(self):
         """
         Clears the entire cache of all packages.
         """
-        shutil.rmtree(self.package_dir_internal, True)
+        for package in self.packages:
+            dir = os.path.join(self.task_manager.tasks_dir_internal, package)
+            shutil.rmtree(dir, True)
 
-    def clear_package_cache(self):
+    def clear_package_cache(self, package='test'):
         """
         Clears the test package's cache.
         """
-        if os.path.exists(self.package_dir_internal):
-            for version in os.listdir(self.package_dir_internal):
-                shutil.rmtree(os.path.join(self.package_dir_internal,
-                        version), True)
+        os.path.join(self.task_manager.tasks_dir_internal, package)
+        if os.path.exists(dir):
+            shutil.rmtree(dir)
 
     def tearDown(self):
         self.clear_cache()
         
-        os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
-        os.rmdir(self.package_dir)
+        for package in self.packages:
+            shutil.rmtree(os.path.join(self.task_manager.tasks_dir, package))
         
         for directory in (pydra_settings.TASKS_DIR,
             pydra_settings.TASKS_DIR_INTERNAL):
@@ -208,8 +216,7 @@ class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
     def test_init_package_multiple_versions(self):
         module = "testmodule"
         self.test_retrieve_task()
-        with open(os.path.join(self.package_dir, "%s.py" % module), "a") as f:
-            f.write("\n\n")
+        self.create_cache_entry(hash='SECOND_ENTRY')
         self.task_manager.autodiscover()
         self.test_retrieve_task()
 
@@ -231,10 +238,10 @@ class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
     def test_retrieve_task(self):
         self.task_manager.autodiscover()
         helper = RetrieveHelper()
-        task_key = self.tasks[0]
+        task_key = self.task
         deferred = self.task_manager.retrieve_task(task_key, None)
         deferred.addCallbacks(helper.callback, helper.errback)
-
+        
         self.assertEquals(task_key, helper.task_key,
             'Task_key does not match')
         self.assert_(helper.task_class, 'task class was not retrieved')
@@ -242,7 +249,7 @@ class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
     def test_retrieve_task_lazy_init(self):
         self.create_cache_entry()
         helper = RetrieveHelper()
-        task_key = self.tasks[0]
+        task_key = self.task
         deferred = self.task_manager.retrieve_task(task_key, None)
         deferred.addCallbacks(helper.callback, helper.errback)
 
