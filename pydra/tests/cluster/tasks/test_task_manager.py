@@ -104,6 +104,24 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
                 shutil.rmtree(os.path.join(self.package_dir_internal,
                         version), True)
 
+    def tearDown(self):
+        self.clear_cache()
+        
+        os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
+        os.rmdir(self.package_dir)
+        
+        for directory in (pydra_settings.TASKS_DIR,
+            pydra_settings.TASKS_DIR_INTERNAL):
+            try:
+                os.rmdir(directory)
+            except OSError:
+                print "Warning: Directory %s not empty" % directory
+                try:
+                    os.removedirs(directory)
+                except OSError:
+                    print "Warning: Directory %s still dirty" % directory
+                    shutil.rmtree(directory)
+
 
 class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
 
@@ -148,24 +166,8 @@ class TaskManagerTest(django_testcase.TestCase, TaskManagerTestCaseMixIn):
             self.task_instances.append(task_instance)
 
     def tearDown(self):
-        for task in self.task_instances:
-            task.delete()
-        self.clear_cache()
-        
-        os.remove(os.path.join(self.package_dir, "%s.py" % "testmodule"))
-        os.rmdir(self.package_dir)
-        
-        for directory in (pydra_settings.TASKS_DIR,
-            pydra_settings.TASKS_DIR_INTERNAL):
-            try:
-                os.rmdir(directory)
-            except OSError:
-                print "Warning: Directory %s not empty" % directory
-                try:
-                    os.removedirs(directory)
-                except OSError:
-                    print "Warning: Directory %s still dirty" % directory
-                    shutil.rmtree(directory)
+        TaskInstance.objects.all().delete()
+        TaskManagerTestCaseMixIn.tearDown(self)
 
     def test_trivial(self):
         """
