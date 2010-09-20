@@ -17,6 +17,7 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
+import inspect
 import os.path
 import shutil
 import tempfile
@@ -41,7 +42,7 @@ from pydra.tests import django_testcase
 test_string = """
 from pydra.cluster.tasks import Task
 class TestTask(Task):
-    pass
+    def work(self, **kwargs): pass
 """
 
 class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
@@ -85,6 +86,16 @@ class TaskManagerTestCaseMixIn(ModuleTestCaseMixIn):
         dir = os.path.join(self.task_manager.tasks_dir, package)
         with open(os.path.join(dir, "%s.py" % module), "w") as f:
                 f.write(str)
+
+    def create_file_from_object(self, object, package='test'):
+        """
+        creates a file from existing module or class. This will locate the
+        source file and copy it into the package.  This does not maintain dir
+        heirarchy, the file will be copied to the root of the package.
+        """
+        src = inspect.getsourcefile(object)
+        dest = os.path.join(self.task_manager.tasks_dir, package)
+        shutil.copy(src, dest)
 
     def create_cache_entry(self, package='test', hash='FAKE_HASH'):
         """
