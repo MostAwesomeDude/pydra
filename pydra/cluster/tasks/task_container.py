@@ -133,7 +133,8 @@ class TaskContainer(Task):
         subtask = self.subtasks[self._current_subtask]
         subtask.task.logger = self.logger
         logger.debug('TaskContainer - starting subtask: %s' % subtask)
-        subtask.task.start(args=args, callback=self._subtask_complete)
+        deferred = subtask.task.start(args=args)
+        deferred.addCallback(self._subtask_complete)
         logger.debug('TaskContainer - STARTED! subtask: %s' % subtask)
 
     def _subtask_complete(self, results):
@@ -141,7 +142,7 @@ class TaskContainer(Task):
         Callback when a subtask is complete.  Will either move on
         to the next subtask or call the callback
         """
-        
+
         self._current_subtask += 1
         if self._current_subtask < len (self.subtasks):
             self._start_subtask(args=results)

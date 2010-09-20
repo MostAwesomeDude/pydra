@@ -21,6 +21,7 @@ import logging
 logger = logging.getLogger('root')
 
 from twisted.internet import reactor, threads
+from twisted.internet.defer import Deferred
 
 from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
     STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
@@ -209,17 +210,13 @@ class Task(object):
         
         return self.parent.request_worker(*args, **kwargs)
 
-    def start(self, args={}, subtask_key=None, workunit=None, task_id=-1, \
-              callback=None, callback_args={}, errback=None, errback_args={}):
+    def start(self, args={}, subtask_key=None, workunit=None, task_id=-1):
         """
         Start the task.
-        
+
         The task's work will be spawned in a separate thread and run
         asynchronously.
-        
-        XXX Corbin: Make this return a Deferred instead of those last four
-        args.
-        
+
         :Parameters:
             args : dict
                 Keyword arguments to pass to the work function
@@ -229,17 +226,13 @@ class Task(object):
                 The workunit key or data
             task_id : int
                 The ID of the task being run
-            callback : callable
-                A callback to be called after the task completes its work
-            callback_args : dict
-                Keyword arguments to pass to the callback
-            errback : callable
-                A callback to be called if an exception happens during task
-                execution
-            errback_args : dict
-                Arguments to pass to errback
+
+        :returns: A `Deferred` that will be called with the result of the
+        task's work.
         """
-        
+
+        d = Deferred()
+
         #if this was subtask find it and execute just that subtask
         if subtask_key:
             self.logger.debug('Task - starting subtask %s' % subtask_key)
@@ -249,28 +242,26 @@ class Task(object):
                                              task_id, \
                                              subtask_key, workunit)
             self.logger.debug('Task - got subtask')
-            self.work_deferred = threads.deferToThread(subtask._start, args, \
-                                            callback, callback_args)
-        
+            self.work_deferred = threads.deferToThread(subtask._start, args)
+
         elif self._status == STATUS_RUNNING:
             # only start root task if not already running
             return
-        
+
         else:
             #else this is a normal task just execute it
-            
+
             self.logger.debug('Task - starting task: %s' % self)
             if self.get_worker():
-                self.work_deferred = threads.deferToThread(self._start, args,
-                    callback, callback_args)
+                self.work_deferred = threads.deferToThread(self._start, args)
             else:
                 # Standalone; just return the result of work()
                 return self.work()
-        
-        if errback and self.work_deferred:
-            self.work_deferred.addErrback(errback, **errback_args)
-        
-        return 1
+
+        if self.work_deferred:
+            self.work_deferred.chainDeferred(d)
+
+        return d
 
     def start_subtask(self, subtask, args, workunit, task_id, callback, \
                       callback_args):

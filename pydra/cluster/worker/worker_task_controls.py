@@ -220,13 +220,12 @@ class WorkerTaskControls(Module):
 
         # start the task.  If this is actually a subtask, then the task is
         # responsible for starting the subtask instead of the main task
-        return self._task_instance.start(clean_args, subtask_key, workunit,
-                        task_id, \
-                        callback=callback,
-                        callback_args = {'workunit':workunit},
-                        errback=callback,
-                        errback_args={'workunit':workunit, 'failed':True})
+        deferred = self._task_instance.start(clean_args, subtask_key,
+            workunit, task_id)
+        deferred.addCallback(callback, workunit=workunit)
+        deferred.addErrback(callback, workunit=workunit, failed=True)
 
+        return deferred
 
     def stop_task(self):
         """
