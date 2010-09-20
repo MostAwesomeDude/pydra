@@ -23,34 +23,28 @@ from twisted.internet import threads
 from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
     STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
     STATUS_COMPLETE
+
 from pydra.cluster.tasks.tasks import Task
 from pydra.cluster.tasks.parallel_task import ParallelTask
 
 from pydra.tests import setup_test_environment
 setup_test_environment()
-from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask, WorkerProxy
+
+from pydra.tests.cluster.tasks.proxies import WorkerProxy
+from pydra.tests.cluster.tasks.impl.task import StartupAndWaitTask
 
 
 class Task_TwistedTest(twisted_unittest.TestCase):
     """
     Task Tests that require the twisted framework to test
     """
-    timeout = 10
-
-    def setUp(self):
-        #reactor.run()
-        pass
-
-    def tearDown(self):
-        #reactor.stop()
-        pass
 
     def verify_status(self, task, parent,  subtask_key=None):
         try:
             parent.start(subtask_key=subtask_key)
             
             # wait for event indicating task has started
-            task.starting_event.wait(5)
+            task.starting_event.wait(1)
             self.assertEqual(task.status(), STATUS_RUNNING, 'Task started but status is not STATUS_RUNNING')
             
             task._stop()
@@ -61,7 +55,7 @@ class Task_TwistedTest(twisted_unittest.TestCase):
             task.running_event.set()
             
             #wait for the task to finish
-            task.finished_event.wait(5)
+            task.finished_event.wait(1)
             self.assertEqual(task._status, STATUS_COMPLETE, 'Task stopped by status is not STATUS_COMPLETE')
         
         except Exception, e:
@@ -69,6 +63,7 @@ class Task_TwistedTest(twisted_unittest.TestCase):
         
         finally:
             #release events just in case
+            
             task._stop()
             task.clear_events()
 

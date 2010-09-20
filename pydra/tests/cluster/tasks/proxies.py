@@ -17,12 +17,9 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-from threading import Event
-from twisted.internet import reactor
-from pydra.cluster.tasks.tasks import Task
-from pydra.cluster.tasks import STATUS_STOPPED
-
 from pydra.tests.proxies import CallProxy
+
+from pydra.cluster.tasks import STATUS_STOPPED
 
 
 class WorkerProxy():
@@ -40,63 +37,6 @@ class WorkerProxy():
 
     def get_key(self):
         return None
-
-
-class StartupAndWaitTask(Task):
-    """
-    Task that runs indefinitely.  Used for tests that
-    require a task with state STATUS_RUNNING.  This task
-    uses a lock so that the testcase can request the lock
-    and effectively pause the task at specific places to
-    verify its internal state
-    """
-
-    def __init__(self):
-        self.starting_event = Event()   # used to lock task until _work() is called
-        self.running_event = Event()    # used to lock running loop
-        self.finished_event = Event()   # used to lock until Task.work() is complete
-        self.failsafe = None
-        self.data = None
-        Task.__init__(self)
-
-    def clear_events(self):
-        """
-        This clears threads waiting on events.  This function will
-        call set() on all the events to ensure nothing is left waiting.
-        """
-        self.starting_event.set()
-        self.running_event.set()
-        self.finished_event.set()
-
-    def _work(self, **kwargs):
-        """
-        extended to add locks at the end of the work
-        """
-        try:
-            # set a failsafe to ensure events get cleared
-            self.failsafe = reactor.callLater(2, self.clear_events)
-            
-            ret = super(StartupAndWaitTask, self)._work(**kwargs)
-            self.finished_event.set()
-        
-        finally:
-            if self.failsafe:
-                self.failsafe.cancel()
-        
-        return ret
-
-    def work(self, data=None):
-        """
-        simple "user defined" work method.  just simulates work being done,
-        until an external object modifies the STOP_FLAG flag
-        """
-        self.data = data
-        self.starting_event.set()
-        while not self.STOP_FLAG:
-            # wait for the running_event.  This  prevents needless looping
-            # and still simulates a task that is working
-            self.running_event.wait(2)
-        return {'data':self.data}
 
 
 class StatusSimulatingTaskProxy():

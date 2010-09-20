@@ -26,8 +26,8 @@ from pydra.cluster.tasks import STATUS_CANCELLED, STATUS_FAILED, \
     STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, STATUS_COMPLETE, \
     TaskNotFoundException
 from pydra.cluster.tasks.task_container import TaskContainer
-from pydra.tests.cluster.tasks.proxies import StartupAndWaitTask, \
-    StatusSimulatingTaskProxy, WorkerProxy
+from pydra.tests.cluster.tasks.proxies import StatusSimulatingTaskProxy, WorkerProxy
+from pydra.tests.cluster.tasks.impl.task import StartupAndWaitTask
 from pydra.tests.cluster.tasks.test_tasks import StandaloneTask
 
 
