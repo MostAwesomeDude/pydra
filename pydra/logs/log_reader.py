@@ -1,9 +1,9 @@
 #!/usr/bin/python
 
 import os, sys, getopt, warnings
-from pydra.config import *
+from pydra.config import load_settings
 settings = load_settings()
-from pydra.logs.logger import *
+from pydra.logs.logger import task_log_path
 warnings.simplefilter('ignore', UserWarning)
 
 def get_all_logs():

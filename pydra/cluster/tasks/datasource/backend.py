@@ -91,6 +91,6 @@ class SQLBackend(object):
 
 
 try:
-    from pydra.cluster.tasks.datasource.tokyo.backend import *
+    from pydra.cluster.tasks.datasource.tokyo.backend import TokyoBackend
 except ImportError:
     pass

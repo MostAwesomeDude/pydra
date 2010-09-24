@@ -22,7 +22,8 @@ from threading import Lock
 import simplejson
 from twisted.internet import reactor
 
-from pydra.cluster.constants import *
+from pydra.cluster.constants import WORKER_STATUS_WORKING, \
+        WORKER_STATUS_FINISHED, WORKER_STATUS_IDLE
 from pydra.cluster.module import Module
 from pydra.logs import get_task_logger
 

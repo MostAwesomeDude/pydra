@@ -7,7 +7,7 @@ from twisted.internet import reactor, threads
 
 from tasks import Task, TaskNotFoundException, \
     STATUS_RUNNING, STATUS_COMPLETE
-from pydra.cluster.tasks.datasource import *
+# from pydra.cluster.tasks.datasource import *
 
 logger = logging.getLogger('root')
 

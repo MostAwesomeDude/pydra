@@ -1,5 +1,4 @@
 import mmap
-import os
 import os.path
 
 from pydra.cluster.tasks.datasource.slicer import LineSlicer, CursorSlicer
@@ -88,6 +87,7 @@ class SQLSelector(object):
 
 
 try:
-    from pydra.cluster.tasks.datasource.tokyo.selector import *
+    from pydra.cluster.tasks.datasource.tokyo.selector import TokyoSelector, \
+    TokyoCondition
 except ImportError:
     pass

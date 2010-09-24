@@ -20,7 +20,8 @@
 from pydra.cluster.controller.web.interface import TwistedWebInterface
 from pydra.logs.log_aggregator import MasterLogAggregator
 from pydra.cluster.module import ModuleManager
-from pydra.cluster.master import *
+from pydra.cluster.master import AutoDiscoveryModule, NodeConnectionManager, \
+        TaskScheduler, NodeManager
 from pydra.cluster.master.task_sync import TaskSyncServer
 from pydra.cluster.tasks.task_manager import TaskManager
 

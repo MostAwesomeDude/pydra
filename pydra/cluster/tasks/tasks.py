@@ -20,12 +20,11 @@
 import logging
 logger = logging.getLogger('root')
 
-from twisted.internet import reactor, threads
+from twisted.internet import threads
 from twisted.internet.defer import Deferred
 
-from pydra.cluster.tasks import TaskNotFoundException, STATUS_CANCELLED, \
-    STATUS_FAILED, STATUS_STOPPED, STATUS_RUNNING, STATUS_PAUSED, \
-    STATUS_COMPLETE
+from pydra.cluster.tasks import TaskNotFoundException, STATUS_STOPPED, \
+        STATUS_RUNNING, STATUS_COMPLETE
 from pydra.logs.logger import get_task_logger
 
 class Task(object):

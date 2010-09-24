@@ -25,7 +25,6 @@ from twisted.spread import pb
 
 from pydra.cluster.auth.master_realm import MasterRealm
 from pydra.cluster.auth.rsa_auth import load_crypto
-from pydra.cluster.constants import *
 from pydra.cluster.module import Module
 from pydra.config import load_settings
 load_settings()
