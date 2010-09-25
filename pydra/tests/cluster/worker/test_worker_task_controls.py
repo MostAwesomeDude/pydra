@@ -16,7 +16,6 @@
     You should have received a copy of the GNU General Public License
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
-import unittest
 
 from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads
@@ -32,8 +31,7 @@ from pydra.cluster.worker import WorkerTaskControls
 from pydra.tests import clean_reactor
 from pydra.tests.cluster.tasks.test_task_manager import TaskManagerTestCaseMixIn
 from pydra.tests.cluster.module.test_module_manager import TestAPI
-from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
-from pydra.tests.proxies import RemoteProxy
+from pydra.tests.proxies import CallProxy, RemoteProxy
 
 class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseMixIn):
     
@@ -79,8 +77,15 @@ class WorkerTaskControlsTestCase(twisted_unittest.TestCase, TaskManagerTestCaseM
             elif failures:
                 self.assertFalse(failure)
             self.assertEqual(value+i, value)
-    
+
     def test_trivial(self):
+        """
+        Sanity test for setUp().
+        """
+
+        pass
+
+    def test_instantiate(self):
         """
         Trivial test that just instantiates class
         """

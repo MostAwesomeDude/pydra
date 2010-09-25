@@ -26,20 +26,24 @@ from pydra.cluster.worker import WorkerConnectionManager
 from pydra.tests.cluster.module.test_module_manager import TestAPI
 
 class WorkerconnectionManagerTestCase(unittest.TestCase):
-    
+
+    def setUp(self):
+
+        self.module = WorkerConnectionManager()
+
     def test_trivial(self):
         """
         Trivial test that just instantiates class
         """
-        module = WorkerConnectionManager()
-    
+
+        pass
+
     def test_register(self):
         """
         Tests registering the module with a manager
         """
         manager = ModuleManager()
-        module = WorkerConnectionManager()
         api = TestAPI()
         manager.register(api)
-        manager.register(module)
-        self.assert_(module in manager._modules)
+        manager.register(self.module)
+        self.assert_(self.module in manager._modules)

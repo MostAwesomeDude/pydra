@@ -23,13 +23,12 @@ setup_test_environment()
 
 import pydra_settings
 
-from pydra.cluster.module import ModuleManager
 from pydra.cluster.worker import Worker
 
 class TestCase(unittest.TestCase):
-    
+
     def test_trivial(self):
         """
         Trivial test that just instantiates class
         """
-        worker = Worker(pydra_settings.WORKER_PORT, 'localhost:0')
+        Worker(pydra_settings.WORKER_PORT, 'localhost:0')
