@@ -31,7 +31,7 @@ from pydra.cluster.tasks import STATUS_UNKNOWN
 from pydra.tests.cluster.module.test_module_manager import TestAPI
 from pydra.tests.cluster.node.test_worker_connection_manager import WorkerConnectionManagerMixin
 from pydra.tests.mixin_testcases import ModuleTestCaseMixIn
-from pydra.tests.proxies import ModuleManagerProxy, RemoteProxy, WorkerAvatarProxy
+from pydra.tests.proxies import RemoteProxy, WorkerAvatarProxy
 
 
 class PopenProxy():

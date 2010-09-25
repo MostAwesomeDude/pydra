@@ -17,18 +17,16 @@
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
 import simplejson
-import StringIO
 import unittest
 import urllib2
 
 from pydra.tests import setup_test_environment
-setup_test_environment() 
+setup_test_environment()
 
 from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.cluster.controller import ControllerException, \
-    ControllerRemoteException, CONTROLLER_ERROR_FUNCTION_NOT_FOUND, \
-    CONTROLLER_ERROR_DISCONNECTED, CONTROLLER_ERROR_NO_RSA_KEY, \
-    CONTROLLER_ERROR_AUTH_FAIL
+        ControllerRemoteException, CONTROLLER_ERROR_NO_RSA_KEY, \
+        CONTROLLER_ERROR_AUTH_FAIL
 from pydra.cluster.controller.web.controller import WebControllerFunction, \
     WebController
 from pydra.cluster.controller.web.interface import TwistedWebInterface

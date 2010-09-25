@@ -24,7 +24,6 @@ import unittest
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
-from pydra.cluster.auth.rsa_auth import load_crypto
 from pydra.tests.cluster.module.test_module_manager import TestAPI, Bar
 
 

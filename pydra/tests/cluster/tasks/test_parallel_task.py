@@ -18,7 +18,6 @@
 """
 import time
 import unittest
-from threading import Event
 
 from twisted.trial import unittest as twisted_unittest
 from twisted.internet import threads

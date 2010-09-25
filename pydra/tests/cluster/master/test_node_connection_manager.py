@@ -16,8 +16,6 @@
     You should have received a copy of the GNU General Public License
     along with Pydra.  If not, see <http://www.gnu.org/licenses/>.
 """
-import unittest
-
 from pydra.tests import setup_test_environment
 setup_test_environment()
 
