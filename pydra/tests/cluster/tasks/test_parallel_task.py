@@ -127,8 +127,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         Tests requesting all work units
         """
         pt = self.pt
-        deferred = pt.start()
-        deferred.addCallback(self.callback)
+        pt.start(callback=self.callback)
         return threads.deferToThread(self.verify_parallel_work)
 
     def test_worker_failed(self):
@@ -193,8 +192,7 @@ class ParallelTaskTwistedTest(twisted_unittest.TestCase):
         Tests completing batched workunits
         """
         pt = self.pt
-        deferred = pt.start()
-        deferred.addCallback(self.callback)
+        pt.start(callback=self.callback)
         return threads.deferToThread(self.verify_batch_complete)
 
 
