@@ -25,6 +25,7 @@
         <p>{{ field.0 }}:{{ field.1 }} <input type="checkbox" name="{{ field.0 }}:{{ field.1 }}"></p>
     {% endfor %}
     <input type="submit">
+    {% csrf_token %}
     </form>
 {% else %}
     There appear to be no non active discovered nodes.
