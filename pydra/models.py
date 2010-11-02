@@ -66,7 +66,16 @@ class Node(models.Model):
         )
 
     def json_safe(self):
-        return self.__dict__
+        """
+        Return all data in this class that can be safely serialized to JSON.
+
+        XXX This is horrid on so many levels. I only patched this; it really
+        should be rewritten to look like other json_safe() methods.
+        """
+
+        d = dict(self.__dict__)
+        del d["_state"]
+        return d
 
     def load_pub_key(self):
         """
@@ -242,10 +251,12 @@ class TaskInstance(AbstractJob):
 
     def json_safe(self):
         """
-        return object as a dictionary of json safe values.  This is needed
-        because some complex types like Datetime will cause an exception if
-        you attempt to serialize them with simplejson
-        """        
+        Create a dictionary of this object safe for JSON serialization.
+
+        JSON can't serialize anything besides a handful of primitive types, so
+        this method only returns types that are JSON-friendly.
+        """
+
         return {
             'id':self.id,
             'task_key':self.task_key,
