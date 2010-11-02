@@ -18,7 +18,6 @@
 """
 
 import datetime
-import StringIO
 import sys
 import traceback
 
@@ -92,36 +91,36 @@ class FunctionResource(resource.Resource):
                     results = self.function(user, *args, **kwargs)
                 else:
                     results = self.function(*args, **kwargs)
-                
+
                 # if the method returns a deferred hook up
                 if isinstance(results, (Deferred)):
                     results.addCallback(deferred_response, req)
                     return server.NOT_DONE_YET
                 else:
                     return simplejson.dumps(results)
-            
+
             except Exception, e:
-                chaff, chaff, tb = sys.exc_info()
-                
-                buf = StringIO.StringIO()
-                traceback.print_tb(tb, limit=10, file=buf)
-                traces = buf.getvalue()
-                buf.close()
-                
-                sys.stdout.write(traces)
-                
-                logger.error('FunctionResource - exception in mapped function \
-                             [%s] %s' % (self.function, e))
-                error = simplejson.dumps({'exception':str(e), \
-                                          'traceback':traces})
+                explanation = (
+                    "FunctionResource: Exception in mapped function [%s]!"
+                    % self.function)
+                error = traceback.format_exc()
+
+                sys.stdout.write(explanation)
+                sys.stdout.write(error)
+
+                logger.error(explanation)
+                logger.error(error)
+
+                serialized = simplejson.dumps({'exception': str(e),
+                    'traceback': error})
                 req.setResponseCode(500)
                 req.setHeader("content-type", "text/html")
-                return error
-        
+                return serialized
+
         # user requires authorization
         req.setResponseCode(401)
         req.setHeader("content-type", "text/html")
-        return 'authentication required for this method'
+        return 'Authentication required for this method'
 
 
 class InterfaceResource(resource.Resource):
