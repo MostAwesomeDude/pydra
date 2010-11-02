@@ -11,7 +11,14 @@ please see our website, http://pydra-project.osuosl.org/.
 Requirements
 ------------
 
-Pydra depends upon Python 2.5, Twisted 9.0, and Django.
+Pydra has a few simple dependencies:
+
+ * Python 2.5-2.x
+ * Twisted 9.0 or newer
+ * Django 1.2
+
+Some versions of Django 1.1 might work. Python 3.x does *not* work. Patches to
+support older versions of these libraries are welcome.
 
 Installation
 ------------
