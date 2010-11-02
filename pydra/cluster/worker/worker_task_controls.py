@@ -202,13 +202,18 @@ class WorkerTaskControls(Module):
             self._task = key
             self._subtask = subtask_key
 
-        # XXX args is the wrong type
-        # process args to make sure they are no longer unicode.  This is an
-        # issue with the args coming through the django frontend.
-        clean_args = {}
-        if args and isinstance(args, str):
-            args = simplejson.loads(args)
-            clean_args = dict((str(k), v) for k, v in args.iteritems())
+        # If args is a string, it may be unicode instead of str. This is a
+        # Django issue. Try to make everybody happy by treating the string as
+        # JSON.
+
+        # This is almost certainly the wrong thing to do, but it's historical.
+        try:
+            clean_args = dict(
+                    (str(k), v) for k, v in
+                    simplejson.loads(args).iteritems()
+            )
+        except:
+            clean_args = args
 
         # only create a new task instance if this is the root task.  Otherwise
         # subtasks will be created within the structure of the task.
